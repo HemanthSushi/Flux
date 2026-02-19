@@ -1,0 +1,127 @@
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+
+function extractErrorMessage(error) {
+  if (error?.registeredButLoginFailed) {
+    return "Account created, but auto-login failed. Please login manually.";
+  }
+
+  const data = error?.response?.data;
+  if (!data) return "Registration failed. Check backend server and try again.";
+
+  if (typeof data.detail === "string") return data.detail;
+  if (typeof data.username?.[0] === "string") return `Username: ${data.username[0]}`;
+  if (typeof data.password?.[0] === "string") return `Password: ${data.password[0]}`;
+  if (typeof data.email?.[0] === "string") return `Email: ${data.email[0]}`;
+
+  return "Registration failed. Please verify all fields and try again.";
+}
+
+export default function RegisterPage() {
+  const { register } = useAuth();
+  const navigate = useNavigate();
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    username: "",
+    email: "",
+    password: "",
+    full_name: "",
+    currency: "USD"
+  });
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    try {
+      await register(form);
+      navigate("/");
+    } catch (err) {
+      setError(extractErrorMessage(err));
+      if (err?.registeredButLoginFailed) {
+        navigate("/login");
+      }
+    }
+  };
+
+  return (
+    <div className="min-h-screen w-full bg-[#e3edf5] dark:bg-slate-950">
+      <div className="grid min-h-screen w-full overflow-hidden bg-white dark:bg-slate-900 lg:grid-cols-2">
+        <div className="flex flex-col justify-center bg-[#edf3f4] px-8 py-10 dark:bg-slate-800 sm:px-12 sm:py-12">
+          <div className="w-full max-w-md pl-0 sm:pl-6 lg:pl-10">
+            <img src="/logo.svg" alt="Money Diary" className="mb-8 h-11 w-auto" />
+
+            <form onSubmit={onSubmit} className="w-full max-w-sm space-y-4">
+              <h1 className="text-3xl font-semibold text-slate-800 dark:text-slate-100 sm:text-4xl">Create user account</h1>
+              <input
+                className="w-full rounded-[2px] border border-slate-200 bg-white px-4 py-3 text-lg dark:border-slate-600 dark:bg-slate-900"
+                placeholder="Username"
+                value={form.username}
+                onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))}
+                required
+              />
+              <input
+                className="w-full rounded-[2px] border border-slate-200 bg-white px-4 py-3 text-lg dark:border-slate-600 dark:bg-slate-900"
+                placeholder="Email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+              />
+              <input
+                className="w-full rounded-[2px] border border-slate-200 bg-white px-4 py-3 text-lg dark:border-slate-600 dark:bg-slate-900"
+                placeholder="Full name"
+                value={form.full_name}
+                onChange={(e) => setForm((p) => ({ ...p, full_name: e.target.value }))}
+              />
+              <input
+                className="w-full rounded-[2px] border border-slate-200 bg-white px-4 py-3 text-lg dark:border-slate-600 dark:bg-slate-900"
+                placeholder="Password"
+                type="password"
+                minLength={8}
+                value={form.password}
+                onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+                required
+              />
+              <select
+                className="w-full rounded-[2px] border border-slate-200 bg-white px-4 py-3 text-lg dark:border-slate-600 dark:bg-slate-900"
+                value={form.currency}
+                onChange={(e) => setForm((p) => ({ ...p, currency: e.target.value }))}
+              >
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="INR">INR</option>
+                <option value="GBP">GBP</option>
+              </select>
+              {error && <p className="text-base text-red-600">{error}</p>}
+              <button className="w-full rounded-[2px] bg-[#29d1c4] px-4 py-3 text-lg font-semibold text-white">
+                Create User
+              </button>
+              <p className="text-lg text-slate-700 dark:text-slate-300">
+                Already have an account?{" "}
+                <Link className="font-semibold text-[#22b9ae]" to="/login">
+                  Login
+                </Link>
+              </p>
+            </form>
+          </div>
+        </div>
+
+        <div className="relative hidden min-h-[40vh] bg-[#fafafa] px-8 py-8 dark:bg-slate-900 sm:px-10 lg:block lg:min-h-screen">
+          <div className="absolute right-5 top-5 flex items-center gap-2 text-xs font-semibold">
+            <Link
+              to="/login"
+              className="rounded-[2px] px-3 py-2 text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              Login
+            </Link>
+            <span className="rounded-[2px] bg-[#29d1c4] px-4 py-2 text-white">Create User</span>
+          </div>
+
+          <div className="grid h-full place-items-center">
+            <img src="/logo.svg" alt="Money Diary" className="h-40 w-auto sm:h-44" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
