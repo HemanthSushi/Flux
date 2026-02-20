@@ -44,6 +44,9 @@ export default function ProfileMenu({ user, onLogout }) {
               <span className="font-semibold">Email:</span> {user?.email || "-"}
             </p>
             <p>
+              <span className="font-semibold">Email verified:</span> {user?.email_verified ? "Yes" : "No"}
+            </p>
+            <p>
               <span className="font-semibold">Currency:</span> {user?.currency || "USD"}
             </p>
             <p className="capitalize">

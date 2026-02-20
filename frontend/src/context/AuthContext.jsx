@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
-import { clearTokens, setTokens } from "../lib/auth";
+import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "../lib/auth";
 
 const AuthContext = createContext(null);
 
@@ -8,22 +8,33 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async () => {
+  const fetchProfile = async ({ silent = false } = {}) => {
     try {
       const resp = await api.get("/auth/profile/");
       setUser(resp.data);
+      return resp.data;
     } catch {
       setUser(null);
+      if (!silent) throw new Error("Unable to load profile");
+      return null;
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    // Enforce logout on every fresh visit/reload.
-    clearTokens();
-    setUser(null);
-    setLoading(false);
+    const initializeAuth = async () => {
+      if (!getAccessToken()) {
+        clearTokens();
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
+      await fetchProfile({ silent: true });
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (username, password) => {
@@ -33,18 +44,16 @@ export function AuthProvider({ children }) {
   };
 
   const register = async (payload) => {
-    await api.post("/auth/register/", payload);
-    try {
-      await login(payload.username, payload.password);
-    } catch (error) {
-      error.registeredButLoginFailed = true;
-      throw error;
-    }
+    const response = await api.post("/auth/register/", payload);
+    return response.data;
   };
 
   const logout = async () => {
+    const refresh = getRefreshToken();
     try {
-      await api.post("/auth/logout/");
+      if (refresh) {
+        await api.post("/auth/logout/", { refresh });
+      }
     } catch {
       // Intentionally ignored: local token cleanup is authoritative.
     }

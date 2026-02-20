@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "corsheaders",
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
     "accounts",
     "finance",
@@ -108,6 +109,20 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": os.getenv("DRF_ANON_RATE", "120/hour"),
+        "user": os.getenv("DRF_USER_RATE", "2000/day"),
+        "login": os.getenv("DRF_LOGIN_RATE", "10/min"),
+        "register": os.getenv("DRF_REGISTER_RATE", "20/hour"),
+        "password_reset": os.getenv("DRF_PASSWORD_RESET_RATE", "8/hour"),
+        "password_change": os.getenv("DRF_PASSWORD_CHANGE_RATE", "15/hour"),
+        "email_verify": os.getenv("DRF_EMAIL_VERIFY_RATE", "10/hour"),
+    },
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
 }
@@ -115,7 +130,9 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    "ROTATE_REFRESH_TOKENS": False,
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
 }
 
 SPECTACULAR_SETTINGS = {
@@ -134,3 +151,10 @@ EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() == "true"
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "20"))
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "noreply@finance.local")
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://127.0.0.1:5173")
+AI_MODEL_RETRAIN_HOURS = int(os.getenv("AI_MODEL_RETRAIN_HOURS", "24"))
+AI_RETRAIN_FEEDBACK_THRESHOLD = int(os.getenv("AI_RETRAIN_FEEDBACK_THRESHOLD", "10"))
+AI_CATEGORY_FEEDBACK_THRESHOLD = float(os.getenv("AI_CATEGORY_FEEDBACK_THRESHOLD", "0.65"))
+AI_RECEIPT_MAX_UPLOAD_MB = int(os.getenv("AI_RECEIPT_MAX_UPLOAD_MB", "8"))
+TESSERACT_CMD = os.getenv("TESSERACT_CMD", "")
+LOGIN_MAX_FAILED_ATTEMPTS = int(os.getenv("LOGIN_MAX_FAILED_ATTEMPTS", "5"))
+LOGIN_LOCK_MINUTES = int(os.getenv("LOGIN_LOCK_MINUTES", "15"))

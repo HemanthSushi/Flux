@@ -1,6 +1,7 @@
 import csv
 import smtplib
-from datetime import date
+from calendar import monthrange
+from datetime import date, timedelta
 from decimal import Decimal
 from io import BytesIO
 
@@ -15,13 +16,47 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from rest_framework import permissions, status, viewsets
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import action, api_view, parser_classes, permission_classes
 from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
-from .models import Category, CategoryBudget, MonthlyBudget, Transaction
+from .ai import (
+    extract_text_from_upload,
+    is_category_accessible,
+    parse_receipt_text,
+    retrain_all_user_models,
+    suggest_category,
+    update_feedback_counter_and_maybe_retrain,
+)
+from .models import (
+    Account,
+    Category,
+    CategoryBudget,
+    CategoryFeedback,
+    CategoryModelState,
+    FinancialGoal,
+    GoalContribution,
+    MonthlyBudget,
+    ReceiptIngestion,
+    RecurringTransaction,
+    Transaction,
+)
 from .permissions import IsOwnerOrAdmin
-from .serializers import CategorySerializer, MonthlyBudgetSerializer, TransactionSerializer
+from .serializers import (
+    AccountSerializer,
+    AICategorizeSerializer,
+    AICategoryFeedbackSerializer,
+    CategorySerializer,
+    FinancialGoalSerializer,
+    GoalContributionCreateSerializer,
+    GoalContributionSerializer,
+    MonthlyBudgetSerializer,
+    ReceiptIngestionResultSerializer,
+    ReceiptIngestionSerializer,
+    RecurringTransactionSerializer,
+    TransactionSerializer,
+)
 
 INCOME_CATEGORY = "Salary"
 DEFAULT_EXPENSE_CATEGORIES = ["Food", "Travel", "Bills", "Shopping", "Health", "Education", "Others"]
@@ -56,6 +91,91 @@ def seed_default_categories() -> None:
             _ensure_single_default_category(name)
 
 
+def _advance_date(current: date, frequency: str, interval: int) -> date:
+    interval = max(int(interval or 1), 1)
+    if frequency == RecurringTransaction.FREQ_DAILY:
+        return current + timedelta(days=interval)
+    if frequency == RecurringTransaction.FREQ_WEEKLY:
+        return current + timedelta(weeks=interval)
+    if frequency == RecurringTransaction.FREQ_MONTHLY:
+        month_index = (current.month - 1) + interval
+        year = current.year + (month_index // 12)
+        month = (month_index % 12) + 1
+        day = min(current.day, monthrange(year, month)[1])
+        return date(year, month, day)
+    if frequency == RecurringTransaction.FREQ_YEARLY:
+        year = current.year + interval
+        day = min(current.day, monthrange(year, current.month)[1])
+        return date(year, current.month, day)
+    return current + timedelta(days=interval)
+
+
+def process_due_recurring_transactions(*, user=None, user_id: int | None = None, as_of: date | None = None) -> dict:
+    target_date = as_of or date.today()
+    recurring_qs = RecurringTransaction.objects.filter(
+        is_active=True,
+        auto_create=True,
+        next_run_date__lte=target_date,
+    ).select_related("owner", "category", "account")
+
+    if user_id:
+        recurring_qs = recurring_qs.filter(owner_id=user_id)
+    elif user and not user.is_staff:
+            recurring_qs = recurring_qs.filter(owner=user)
+
+    generated = 0
+    skipped = 0
+    processed = 0
+
+    for recurring in recurring_qs:
+        dirty = False
+        if not recurring.category_id:
+            recurring.is_active = False
+            recurring.last_run_date = recurring.last_run_date or recurring.next_run_date
+            recurring.save(update_fields=["is_active", "last_run_date", "updated_at"])
+            skipped += 1
+            continue
+
+        while recurring.next_run_date and recurring.next_run_date <= target_date:
+            if recurring.end_date and recurring.next_run_date > recurring.end_date:
+                recurring.is_active = False
+                dirty = True
+                break
+
+            run_date = recurring.next_run_date
+            tx, created = Transaction.objects.get_or_create(
+                source_recurring=recurring,
+                recurrence_for_date=run_date,
+                defaults={
+                    "owner": recurring.owner,
+                    "txn_type": recurring.txn_type,
+                    "amount": recurring.amount,
+                    "category": recurring.category,
+                    "account": recurring.account,
+                    "date": run_date,
+                    "notes": recurring.notes,
+                },
+            )
+            if created:
+                generated += 1
+            else:
+                skipped += 1
+
+            recurring.last_run_date = run_date
+            recurring.next_run_date = _advance_date(run_date, recurring.frequency, recurring.interval)
+            processed += 1
+            dirty = True
+
+            if recurring.end_date and recurring.next_run_date > recurring.end_date:
+                recurring.is_active = False
+                break
+
+        if dirty:
+            recurring.save(update_fields=["last_run_date", "next_run_date", "is_active", "updated_at"])
+
+    return {"processed_schedules": processed, "generated_transactions": generated, "skipped": skipped}
+
+
 def _build_monthly_report(user, year: int, month: int) -> dict:
     qs = Transaction.objects.filter(owner=user, date__year=year, date__month=month)
     total_income = qs.filter(txn_type=Transaction.INCOME).aggregate(total=Sum("amount"))["total"] or Decimal("0")
@@ -87,12 +207,13 @@ def _truncate(value: str, size: int) -> str:
     return f"{text[: max(size - 3, 0)]}..."
 
 
-def _draw_pdf_logo(pdf, x: float, y: float) -> None:
+def _draw_pdf_logo(pdf, x: float, y: float, text_color=None) -> None:
     # y is top coordinate for the logo block.
     icon_size = 24
     icon_y = y - icon_size
     green = colors.HexColor("#5D826A")
-    slate = colors.HexColor("#5E6066")
+    default_text = colors.HexColor("#5E6066")
+    resolved_text_color = text_color or default_text
 
     pdf.setStrokeColor(green)
     pdf.setLineWidth(2)
@@ -106,7 +227,7 @@ def _draw_pdf_logo(pdf, x: float, y: float) -> None:
     pdf.setFillColor(green)
     pdf.roundRect(x + icon_size + 3, icon_y + 4, 2.5, icon_size - 8, 1, stroke=0, fill=1)
 
-    pdf.setFillColor(slate)
+    pdf.setFillColor(resolved_text_color)
     pdf.setFont("Helvetica-Bold", 14)
     pdf.drawString(x + 34, y - 10, "Money")
     pdf.drawString(x + 34, y - 24, "Diary")
@@ -122,9 +243,7 @@ def _draw_pdf_header(pdf, user, report: dict, page_number: int, continued: bool 
     pdf.setFillColor(colors.HexColor("#1E3A8A"))
     pdf.rect(0, page_height - 98, page_width, 98, stroke=0, fill=1)
 
-    pdf.setFillColor(colors.white)
-    pdf.roundRect(30, page_height - 84, 170, 58, 10, stroke=0, fill=1)
-    _draw_pdf_logo(pdf, 42, page_height - 34)
+    _draw_pdf_logo(pdf, 42, page_height - 34, text_color=colors.white)
 
     pdf.setFillColor(colors.HexColor("#EFF6FF"))
     pdf.setFont("Helvetica-Bold", 16)
@@ -173,6 +292,113 @@ class CategoryViewSet(viewsets.ModelViewSet):
         instance.delete()
 
 
+class AccountViewSet(viewsets.ModelViewSet):
+    serializer_class = AccountSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+    search_fields = ["name", "account_type", "currency"]
+    ordering_fields = ["name", "opening_balance", "created_at"]
+    ordering = ["name"]
+
+    def get_queryset(self):
+        qs = Account.objects.all()
+        if not self.request.user.is_staff:
+            qs = qs.filter(owner=self.request.user)
+        is_active = self.request.query_params.get("is_active")
+        if is_active is not None:
+            qs = qs.filter(is_active=_to_bool(is_active))
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+    @action(detail=True, methods=["get"])
+    def transactions(self, request, pk=None):
+        account = self.get_object()
+        qs = account.transactions.select_related("category", "account").order_by("-date", "-created_at")
+
+        year = request.query_params.get("year")
+        if year:
+            qs = qs.filter(date__year=year)
+        month = request.query_params.get("month")
+        if month:
+            qs = qs.filter(date__month=month)
+        txn_type = request.query_params.get("txn_type")
+        if txn_type:
+            qs = qs.filter(txn_type=txn_type)
+
+        total_income = qs.filter(txn_type=Transaction.INCOME).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+        total_expense = qs.filter(txn_type=Transaction.EXPENSE).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+
+        serialized_transactions = TransactionSerializer(qs[:50], many=True).data
+        return Response(
+            {
+                "wallet": AccountSerializer(account).data,
+                "summary": {
+                    "total_income": total_income,
+                    "total_expense": total_expense,
+                    "net": total_income - total_expense,
+                },
+                "count": qs.count(),
+                "results": serialized_transactions,
+            }
+        )
+
+
+class RecurringTransactionViewSet(viewsets.ModelViewSet):
+    serializer_class = RecurringTransactionSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+    search_fields = ["notes", "category__name", "account__name", "frequency", "txn_type"]
+    ordering_fields = ["next_run_date", "amount", "created_at"]
+    ordering = ["next_run_date", "-created_at"]
+
+    def get_queryset(self):
+        qs = RecurringTransaction.objects.select_related("category", "account", "owner")
+        if not self.request.user.is_staff:
+            qs = qs.filter(owner=self.request.user)
+        txn_type = self.request.query_params.get("txn_type")
+        if txn_type:
+            qs = qs.filter(txn_type=txn_type)
+        is_active = self.request.query_params.get("is_active")
+        if is_active is not None:
+            qs = qs.filter(is_active=_to_bool(is_active))
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+    @action(detail=False, methods=["post"])
+    def run_due(self, request):
+        as_of = request.data.get("as_of")
+        target_date = date.today()
+        if as_of:
+            try:
+                target_date = date.fromisoformat(str(as_of))
+            except ValueError:
+                raise ValidationError({"as_of": "Expected YYYY-MM-DD format."})
+
+        requested_all_users = _to_bool(request.data.get("all_users"), default=False)
+        requested_user_id = request.data.get("user_id")
+
+        user_id = None
+        if request.user.is_staff:
+            if requested_all_users:
+                user_id = None
+            elif requested_user_id:
+                try:
+                    user_id = int(requested_user_id)
+                except (TypeError, ValueError):
+                    raise ValidationError({"user_id": "Expected a valid integer user id."})
+            else:
+                user_id = request.user.id
+        else:
+            user_id = request.user.id
+
+        result = process_due_recurring_transactions(user=request.user, user_id=user_id, as_of=target_date)
+        result["scope"] = "all_users" if user_id is None else f"user:{user_id}"
+        result["as_of"] = target_date.isoformat()
+        return Response(result)
+
+
 class TransactionViewSet(viewsets.ModelViewSet):
     serializer_class = TransactionSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
@@ -182,7 +408,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         seed_default_categories()
-        qs = Transaction.objects.select_related("category", "owner")
+        qs = Transaction.objects.select_related("category", "owner", "account")
         if self.request.user.is_staff:
             qs = qs.all()
         else:
@@ -201,11 +427,62 @@ class TransactionViewSet(viewsets.ModelViewSet):
         category = self.request.query_params.get("category")
         if category:
             qs = qs.filter(category_id=category)
+        account = self.request.query_params.get("account")
+        if account:
+            qs = qs.filter(account_id=account)
         return qs
 
     def perform_create(self, serializer):
         seed_default_categories()
         serializer.save(owner=self.request.user)
+
+
+class FinancialGoalViewSet(viewsets.ModelViewSet):
+    serializer_class = FinancialGoalSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+    search_fields = ["name", "status", "notes"]
+    ordering_fields = ["target_date", "target_amount", "current_amount", "created_at", "updated_at"]
+    ordering = ["status", "target_date", "-created_at"]
+
+    def get_queryset(self):
+        qs = FinancialGoal.objects.select_related("linked_account", "owner").prefetch_related("contributions")
+        if not self.request.user.is_staff:
+            qs = qs.filter(owner=self.request.user)
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def contribute(self, request, pk=None):
+        goal = self.get_object()
+        serializer = GoalContributionCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        contribution = GoalContribution.objects.create(
+            goal=goal,
+            amount=serializer.validated_data["amount"],
+            contribution_date=serializer.validated_data.get("contribution_date", date.today()),
+            notes=serializer.validated_data.get("notes", ""),
+        )
+        goal.current_amount = (goal.current_amount or Decimal("0")) + contribution.amount
+        if goal.current_amount >= goal.target_amount:
+            goal.status = FinancialGoal.STATUS_COMPLETED
+        elif goal.status == FinancialGoal.STATUS_COMPLETED:
+            goal.status = FinancialGoal.STATUS_ACTIVE
+        goal.save(update_fields=["current_amount", "status", "updated_at"])
+
+        return Response(
+            {
+                "detail": "Contribution added.",
+                "contribution": GoalContributionSerializer(contribution).data,
+                "goal": FinancialGoalSerializer(goal, context={"request": request}).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class MonthlyBudgetViewSet(viewsets.ModelViewSet):
@@ -271,6 +548,18 @@ class MonthlyBudgetViewSet(viewsets.ModelViewSet):
 
 
 @api_view(["GET"])
+@permission_classes([permissions.AllowAny])
+def health_check(request):
+    return Response(
+        {
+            "status": "ok",
+            "service": "finance-tracker-api",
+            "timestamp": now().isoformat(),
+        }
+    )
+
+
+@api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
 def dashboard_summary(request):
     user = request.user
@@ -305,6 +594,43 @@ def dashboard_summary(request):
         for item in monthly_trend
     ]
 
+    account_balances = []
+    for account in Account.objects.filter(owner=user, is_active=True):
+        income_total = (
+            account.transactions.filter(txn_type=Transaction.INCOME).aggregate(total=Sum("amount"))["total"]
+            or Decimal("0")
+        )
+        expense_total = (
+            account.transactions.filter(txn_type=Transaction.EXPENSE).aggregate(total=Sum("amount"))["total"]
+            or Decimal("0")
+        )
+        account_balances.append(
+            {
+                "id": account.id,
+                "name": account.name,
+                "currency": account.currency,
+                "current_balance": account.opening_balance + income_total - expense_total,
+            }
+        )
+
+    goals = FinancialGoal.objects.filter(owner=user).order_by("status", "target_date", "-created_at")[:5]
+    goals_data = []
+    for goal in goals:
+        if goal.target_amount > 0:
+            progress = float(min((goal.current_amount / goal.target_amount) * Decimal("100"), Decimal("100")))
+        else:
+            progress = 0.0
+        goals_data.append(
+            {
+                "id": goal.id,
+                "name": goal.name,
+                "status": goal.status,
+                "target_amount": goal.target_amount,
+                "current_amount": goal.current_amount,
+                "progress_percentage": progress,
+            }
+        )
+
     return Response(
         {
             "total_income": income,
@@ -313,8 +639,246 @@ def dashboard_summary(request):
             "recent_transactions": recent_data,
             "top_spending_categories": list(top_categories),
             "spending_trend": trend_data,
+            "account_balances": account_balances,
+            "goals": goals_data,
         }
     )
+
+
+def _to_bool(value, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def ai_categorize(request):
+    seed_default_categories()
+    serializer = AICategorizeSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    payload = serializer.validated_data
+    suggestion = suggest_category(
+        request.user,
+        description=payload.get("description", ""),
+        txn_type=payload.get("txn_type", Transaction.EXPENSE),
+    )
+    category = suggestion.get("category")
+
+    return Response(
+        {
+            "category_id": category.id if category else None,
+            "category_name": category.name if category else None,
+            "confidence": suggestion["confidence"],
+            "needs_feedback": suggestion["needs_feedback"],
+            "model_version": suggestion["model_version"],
+            "sample_count": suggestion["sample_count"],
+            "retrained": suggestion["retrained"],
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def ai_categorize_feedback(request):
+    seed_default_categories()
+    serializer = AICategoryFeedbackSerializer(data=request.data, context={"request": request})
+    serializer.is_valid(raise_exception=True)
+    payload = serializer.validated_data
+
+    predicted = payload.get("predicted_category")
+    corrected = payload["corrected_category"]
+
+    if not is_category_accessible(request.user, corrected):
+        raise ValidationError({"corrected_category": "Category is not accessible."})
+
+    was_accepted = payload.get("was_accepted", False)
+    if predicted and corrected and predicted.id == corrected.id:
+        was_accepted = True
+
+    state = CategoryModelState.objects.filter(owner=request.user).first()
+    feedback = CategoryFeedback.objects.create(
+        owner=request.user,
+        description=payload["description"],
+        predicted_category=predicted,
+        corrected_category=corrected,
+        transaction=payload.get("transaction"),
+        confidence=payload.get("confidence"),
+        was_accepted=was_accepted,
+        source=payload.get("source", CategoryFeedback.SOURCE_MANUAL),
+        model_version=state.version if state else None,
+    )
+
+    model_state, retrained = update_feedback_counter_and_maybe_retrain(request.user)
+    return Response(
+        {
+            "detail": "Feedback recorded.",
+            "feedback_id": feedback.id,
+            "retrained": retrained,
+            "model_version": model_state.version,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def ai_retrain(request):
+    force = _to_bool(request.data.get("force"), default=True)
+
+    if request.user.is_staff and _to_bool(request.data.get("all_users")):
+        target_user_id = request.data.get("user_id")
+        target_user_id = int(target_user_id) if target_user_id else None
+        processed, retrained = retrain_all_user_models(force=force, user_id=target_user_id)
+        return Response(
+            {
+                "detail": "Retrain completed.",
+                "scope": "all_users" if target_user_id is None else f"user:{target_user_id}",
+                "processed_users": processed,
+                "retrained_users": retrained,
+            }
+        )
+
+    processed, retrained = retrain_all_user_models(force=force, user_id=request.user.id)
+    state = CategoryModelState.objects.filter(owner=request.user).first()
+    return Response(
+        {
+            "detail": "Retrain completed.",
+            "scope": f"user:{request.user.id}",
+            "processed_users": processed,
+            "retrained_users": retrained,
+            "model_version": state.version if state else None,
+            "sample_count": state.sample_count if state else 0,
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
+def ai_receipt_ingest(request):
+    seed_default_categories()
+    max_upload_mb = int(getattr(settings, "AI_RECEIPT_MAX_UPLOAD_MB", 8))
+    serializer = ReceiptIngestionSerializer(
+        data=request.data, context={"max_upload_mb": max_upload_mb}
+    )
+    serializer.is_valid(raise_exception=True)
+
+    payload = serializer.validated_data
+    upload = payload["file"]
+    create_transaction = payload.get("create_transaction", False)
+    txn_type = payload.get("txn_type", Transaction.EXPENSE)
+
+    ingestion = ReceiptIngestion.objects.create(
+        owner=request.user,
+        file_name=upload.name,
+        txn_type=txn_type,
+    )
+
+    parsed = {}
+    try:
+        raw_text, ocr_engine = extract_text_from_upload(upload)
+        parsed = parse_receipt_text(raw_text)
+        description_for_ai = (
+            parsed.get("description")
+            or parsed.get("merchant")
+            or (raw_text or "")[:180]
+        )
+        suggestion = suggest_category(request.user, description_for_ai, txn_type=txn_type)
+        suggested_category = suggestion.get("category")
+
+        ingestion.raw_text = (raw_text or "")[:25000]
+        ingestion.merchant = parsed.get("merchant") or ""
+        ingestion.detected_amount = parsed.get("amount")
+        ingestion.detected_date = parsed.get("date")
+        ingestion.suggested_category = suggested_category
+        ingestion.category_confidence = suggestion.get("confidence")
+        ingestion.metadata = {
+            "ocr_engine": ocr_engine,
+            "text_length": len(raw_text or ""),
+            "needs_feedback": suggestion.get("needs_feedback", True),
+            "model_version": suggestion.get("model_version"),
+            "suggested_description": description_for_ai,
+        }
+        ingestion.status = ReceiptIngestion.STATUS_PARSED
+
+        if create_transaction:
+            if not parsed.get("amount") or not parsed.get("date"):
+                ingestion.status = ReceiptIngestion.STATUS_FAILED
+                ingestion.error_message = (
+                    "Could not detect both amount and date from receipt. "
+                    "Upload a clearer receipt or create transaction manually."
+                )
+            else:
+                final_category = suggested_category
+                if not final_category:
+                    final_category = (
+                        Category.objects.filter(name__iexact="Others", is_default=True).first()
+                        or Category.objects.filter(is_default=True).exclude(name__iexact=INCOME_CATEGORY).first()
+                    )
+
+                transaction_notes = description_for_ai or "Imported from receipt"
+                created_tx = Transaction.objects.create(
+                    owner=request.user,
+                    txn_type=txn_type,
+                    amount=parsed["amount"],
+                    category=final_category,
+                    date=parsed["date"],
+                    notes=transaction_notes,
+                )
+                ingestion.created_transaction = created_tx
+                ingestion.status = ReceiptIngestion.STATUS_IMPORTED
+
+                if txn_type == Transaction.EXPENSE and final_category:
+                    CategoryFeedback.objects.create(
+                        owner=request.user,
+                        description=transaction_notes,
+                        predicted_category=suggested_category,
+                        corrected_category=final_category,
+                        transaction=created_tx,
+                        confidence=suggestion.get("confidence"),
+                        was_accepted=bool(
+                            suggested_category and suggested_category.id == final_category.id
+                        ),
+                        source=CategoryFeedback.SOURCE_RECEIPT,
+                        model_version=suggestion.get("model_version"),
+                        metadata={"receipt_ingestion_id": ingestion.id},
+                    )
+                    update_feedback_counter_and_maybe_retrain(request.user)
+    except RuntimeError as exc:
+        ingestion.status = ReceiptIngestion.STATUS_FAILED
+        ingestion.error_message = str(exc)
+        ingestion.save()
+        result = ReceiptIngestionResultSerializer(ingestion).data
+        result["raw_text_preview"] = ingestion.raw_text[:1000]
+        return Response(result, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    except Exception as exc:
+        ingestion.status = ReceiptIngestion.STATUS_FAILED
+        ingestion.error_message = f"Receipt parsing failed: {exc}"
+        ingestion.save()
+        result = ReceiptIngestionResultSerializer(ingestion).data
+        result["raw_text_preview"] = ingestion.raw_text[:1000]
+        return Response(result, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    ingestion.save()
+    result = ReceiptIngestionResultSerializer(ingestion).data
+    result["raw_text_preview"] = ingestion.raw_text[:1000]
+    if parsed:
+        result["suggested_description"] = ingestion.metadata.get("suggested_description")
+
+    response_status = (
+        status.HTTP_201_CREATED
+        if create_transaction and ingestion.status == ReceiptIngestion.STATUS_IMPORTED
+        else (
+            status.HTTP_422_UNPROCESSABLE_ENTITY
+            if create_transaction and ingestion.status == ReceiptIngestion.STATUS_FAILED
+            else status.HTTP_200_OK
+        )
+    )
+    return Response(result, status=response_status)
 
 
 @api_view(["GET"])

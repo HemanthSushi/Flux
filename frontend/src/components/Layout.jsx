@@ -5,8 +5,11 @@ import ThemeToggle from "./ThemeToggle";
 
 const navItems = [
   { to: "/", label: "Dashboard" },
+  { to: "/wallets", label: "Wallets" },
   { to: "/transactions", label: "Transactions" },
+  { to: "/recurring", label: "Recurring" },
   { to: "/budgets", label: "Budgets" },
+  { to: "/goals", label: "Goals" },
   { to: "/reports", label: "Reports" }
 ];
 

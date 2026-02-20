@@ -2,10 +2,13 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./context/AuthContext";
+import AccountsPage from "./pages/AccountsPage";
+import GoalsPage from "./pages/GoalsPage";
 import BudgetsPage from "./pages/BudgetsPage";
 import DashboardPage from "./pages/DashboardPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
+import RecurringTransactionsPage from "./pages/RecurringTransactionsPage";
 import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ReportsPage from "./pages/ReportsPage";
@@ -65,6 +68,16 @@ export default function App() {
         }
       />
       <Route
+        path="/wallets"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <AccountsPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/transactions"
         element={
           <ProtectedRoute>
@@ -75,11 +88,31 @@ export default function App() {
         }
       />
       <Route
+        path="/recurring"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <RecurringTransactionsPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/budgets"
         element={
           <ProtectedRoute>
             <Layout>
               <BudgetsPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/goals"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <GoalsPage />
             </Layout>
           </ProtectedRoute>
         }

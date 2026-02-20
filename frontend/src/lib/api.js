@@ -46,7 +46,7 @@ api.interceptors.response.use(
     isRefreshing = true;
     try {
       const resp = await axios.post(`${API_BASE_URL}/auth/refresh/`, { refresh });
-      setTokens({ access: resp.data.access });
+      setTokens({ access: resp.data.access, refresh: resp.data.refresh || refresh });
       flushQueue(resp.data.access);
       original.headers.Authorization = `Bearer ${resp.data.access}`;
       return api(original);

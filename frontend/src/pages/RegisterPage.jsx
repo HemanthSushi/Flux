@@ -3,10 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 function extractErrorMessage(error) {
-  if (error?.registeredButLoginFailed) {
-    return "Account created, but auto-login failed. Please login manually.";
-  }
-
   const data = error?.response?.data;
   if (!data) return "Registration failed. Check backend server and try again.";
 
@@ -14,6 +10,7 @@ function extractErrorMessage(error) {
   if (typeof data.username?.[0] === "string") return `Username: ${data.username[0]}`;
   if (typeof data.password?.[0] === "string") return `Password: ${data.password[0]}`;
   if (typeof data.email?.[0] === "string") return `Email: ${data.email[0]}`;
+  if (typeof data === "object") return `Registration failed: ${JSON.stringify(data)}`;
 
   return "Registration failed. Please verify all fields and try again.";
 }
@@ -22,6 +19,7 @@ export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -33,14 +31,13 @@ export default function RegisterPage() {
   const onSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
     try {
       await register(form);
-      navigate("/");
+      setSuccess("Account created successfully. Please login.");
+      setTimeout(() => navigate("/login"), 600);
     } catch (err) {
       setError(extractErrorMessage(err));
-      if (err?.registeredButLoginFailed) {
-        navigate("/login");
-      }
     }
   };
 
@@ -93,6 +90,7 @@ export default function RegisterPage() {
                 <option value="GBP">GBP</option>
               </select>
               {error && <p className="text-base text-red-600">{error}</p>}
+              {success && <p className="text-base text-emerald-600">{success}</p>}
               <button className="w-full rounded-[2px] bg-[#29d1c4] px-4 py-3 text-lg font-semibold text-white">
                 Create User
               </button>
