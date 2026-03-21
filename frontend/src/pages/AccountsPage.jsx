@@ -121,13 +121,13 @@ export default function AccountsPage() {
         <input
           type="text"
           inputMode="decimal"
-          pattern="^\\d+(\\.\\d{1,2})?$"
+          pattern="^[0-9]+(\\.[0-9]{1,2})?$"
           placeholder="Opening balance"
           aria-label="Opening balance"
           value={form.opening_balance}
           onChange={(e) => {
             const value = e.target.value;
-            if (/^\d*\.?\d{0,2}$/.test(value)) {
+            if (/^[0-9]*\.?[0-9]{0,2}$/.test(value)) {
               setForm((prev) => ({ ...prev, opening_balance: value }));
             }
           }}
@@ -207,3 +207,4 @@ export default function AccountsPage() {
     </section>
   );
 }
+

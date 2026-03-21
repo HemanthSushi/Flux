@@ -364,7 +364,42 @@ def extract_text_from_upload(uploaded_file) -> tuple[str, str]:
 
         reader = PdfReader(BytesIO(content))
         pages = [page.extract_text() or "" for page in reader.pages[:10]]
-        return "\n".join(pages).strip(), "pdf"
+        extracted_text = "\n".join(pages).strip()
+        if extracted_text:
+            return extracted_text, "pdf-text"
+
+        # Scanned PDFs are often image-only, so plain text extraction returns empty.
+        # Fallback: OCR embedded page images when available.
+        try:
+            from PIL import Image
+            import pytesseract
+        except ImportError as exc:
+            raise RuntimeError(
+                "Scanned PDF OCR requires Pillow and pytesseract. Install backend dependencies."
+            ) from exc
+
+        tesseract_cmd = getattr(settings, "TESSERACT_CMD", "").strip()
+        if tesseract_cmd:
+            pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+
+        ocr_chunks = []
+        for page in reader.pages[:10]:
+            page_images = getattr(page, "images", []) or []
+            for image_file in page_images[:5]:
+                image_bytes = getattr(image_file, "data", b"")
+                if not image_bytes:
+                    continue
+                try:
+                    image = Image.open(BytesIO(image_bytes)).convert("RGB")
+                    text = pytesseract.image_to_string(image).strip()
+                    if text:
+                        ocr_chunks.append(text)
+                except Exception:
+                    continue
+
+        if ocr_chunks:
+            return "\n".join(ocr_chunks).strip(), "pdf-image-ocr"
+        return "", "pdf-empty"
 
     if extension in {"png", "jpg", "jpeg", "bmp", "tif", "tiff", "webp"}:
         try:

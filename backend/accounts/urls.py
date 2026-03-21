@@ -1,7 +1,9 @@
 from django.urls import path
 
 from .views import (
+    EmailVerificationOTPConfirmView,
     EmailVerificationConfirmView,
+    EmailVerificationPublicRequestView,
     EmailVerificationRequestView,
     ForgotPasswordView,
     LoginView,
@@ -22,6 +24,12 @@ urlpatterns = [
     path("profile/", ProfileView.as_view(), name="profile"),
     path("change-password/", PasswordChangeView.as_view(), name="change-password"),
     path("email-verify/request/", EmailVerificationRequestView.as_view(), name="email-verify-request"),
+    path(
+        "email-verify/request-public/",
+        EmailVerificationPublicRequestView.as_view(),
+        name="email-verify-request-public",
+    ),
+    path("email-verify/confirm-otp/", EmailVerificationOTPConfirmView.as_view(), name="email-verify-confirm-otp"),
     path("email-verify/confirm/", EmailVerificationConfirmView.as_view(), name="email-verify-confirm"),
     path("forgot-password/", ForgotPasswordView.as_view(), name="forgot-password"),
     path("reset-password/verify/", ResetPasswordVerifyView.as_view(), name="reset-password-verify"),

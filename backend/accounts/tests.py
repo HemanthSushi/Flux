@@ -1,6 +1,10 @@
+import re
+
 from django.conf import settings
+from django.core import mail
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
+from django.test import override_settings
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from rest_framework.test import APITestCase
@@ -67,3 +71,64 @@ class SecurityUpgradeTests(APITestCase):
 
         profile = Profile.objects.get(user=self.user)
         self.assertTrue(profile.email_verified)
+        self.assertEqual(profile.email_verification_otp_hash, "")
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        FRONTEND_BASE_URL="http://127.0.0.1:5173",
+    )
+    def test_email_verify_public_request_sends_register_link_and_otp(self):
+        response = self.client.post(
+            "/api/auth/email-verify/request-public/",
+            {"email": self.user.email},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["detail"],
+            "If an account with this email exists, a verification code has been sent.",
+        )
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("/register?uid=", mail.outbox[0].body)
+        self.assertIn("&token=", mail.outbox[0].body)
+        self.assertRegex(mail.outbox[0].body, r"OTP code:\s*\d{6}")
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        FRONTEND_BASE_URL="http://127.0.0.1:5173",
+    )
+    def test_email_verify_otp_confirm_endpoint(self):
+        request_response = self.client.post(
+            "/api/auth/email-verify/request-public/",
+            {"email": self.user.email},
+            format="json",
+        )
+        self.assertEqual(request_response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        match = re.search(r"OTP code:\s*(\d{6})", mail.outbox[0].body)
+        self.assertIsNotNone(match)
+        otp = match.group(1)
+
+        confirm_response = self.client.post(
+            "/api/auth/email-verify/confirm-otp/",
+            {"email": self.user.email, "otp": otp},
+            format="json",
+        )
+        self.assertEqual(confirm_response.status_code, 200)
+        profile = Profile.objects.get(user=self.user)
+        self.assertTrue(profile.email_verified)
+        self.assertEqual(profile.email_verification_otp_hash, "")
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_email_verify_public_request_is_generic_for_unknown_email(self):
+        response = self.client.post(
+            "/api/auth/email-verify/request-public/",
+            {"email": "unknown@example.com"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["detail"],
+            "If an account with this email exists, a verification code has been sent.",
+        )
+        self.assertEqual(len(mail.outbox), 0)

@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./context/AuthContext";
@@ -16,8 +16,13 @@ import TransactionsPage from "./pages/TransactionsPage";
 
 function PublicOnly({ children }) {
   const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const hasEmailVerificationParams =
+    location.pathname === "/register" && params.get("uid") && params.get("token");
+
   if (loading) return <div className="p-8 text-center">Loading...</div>;
-  if (isAuthenticated) return <Navigate to="/" replace />;
+  if (isAuthenticated && !hasEmailVerificationParams) return <Navigate to="/" replace />;
   return children;
 }
 
