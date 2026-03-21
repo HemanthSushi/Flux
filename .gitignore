@@ -19,6 +19,8 @@ backend/.env
 backend/.pytest_cache/
 backend/.mypy_cache/
 backend/.ruff_cache/
+backend/staticfiles/
+backend/package-lock.json
 
 # Node frontend
 frontend/node_modules/
