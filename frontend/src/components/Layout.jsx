@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ProfileMenu from "./ProfileMenu";
@@ -109,6 +109,17 @@ const tourSteps = [
   }
 ];
 
+const getTargetSelector = (step) => {
+  if (!step) return "";
+  const isMobile = window.innerWidth < 1024;
+  if (isMobile) {
+    if (step.target === "#tour-stats") return "#tour-stats > div:first-child";
+    if (step.target === "#tour-charts") return "#tour-charts > div:first-child";
+  }
+  return step.target;
+};
+
+
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -117,6 +128,9 @@ export default function Layout({ children }) {
   const [tourActive, setTourActive] = useState(false);
   const [tourStep, setTourStep] = useState(0);
   const [openFaq, setOpenFaq] = useState({});
+
+  const [targetRect, setTargetRect] = useState(null);
+  const [isTransitioningStep, setIsTransitioningStep] = useState(false);
 
   const onLogout = async () => {
     await logout();
@@ -154,15 +168,60 @@ export default function Layout({ children }) {
 
   const endTour = () => {
     setTourActive(false);
+    setTargetRect(null);
     cleanTourHighlights();
     localStorage.setItem("flux_tour_completed", "true");
   };
 
   useEffect(() => {
+    setIsTransitioningStep(true);
+    const timer = setTimeout(() => setIsTransitioningStep(false), 400);
+    return () => clearTimeout(timer);
+  }, [tourStep, tourActive]);
+
+  useEffect(() => {
+    if (!tourActive) {
+      setTargetRect(null);
+      return;
+    }
+
+    const updateRect = () => {
+      const step = tourSteps[tourStep];
+      if (!step) return;
+      const selector = getTargetSelector(step);
+      const el = document.querySelector(selector);
+      if (el) {
+        setTargetRect(el.getBoundingClientRect());
+      } else {
+        setTargetRect(null);
+      }
+    };
+
+    // Run immediately
+    updateRect();
+
+    // Listeners for page changes
+    window.addEventListener("scroll", updateRect, { passive: true });
+    window.addEventListener("resize", updateRect);
+
+    // Dynamic checks as layout shifts or scroll settling occurs
+    const timer1 = setTimeout(updateRect, 100);
+    const timer2 = setTimeout(updateRect, 500);
+
+    return () => {
+      window.removeEventListener("scroll", updateRect);
+      window.removeEventListener("resize", updateRect);
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, [tourActive, tourStep]);
+
+  useEffect(() => {
     cleanTourHighlights();
     if (tourActive && tourStep < tourSteps.length) {
       const step = tourSteps[tourStep];
-      const targetEl = document.querySelector(step.target);
+      const selector = getTargetSelector(step);
+      const targetEl = document.querySelector(selector);
       if (targetEl) {
         targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
         targetEl.classList.add("tour-highlight");
@@ -350,9 +409,58 @@ export default function Layout({ children }) {
         </>
       )}
 
+      {/* Dynamic SVG Spotlight Overlay */}
+      {tourActive && targetRect && (
+        <svg className="fixed inset-0 z-40 w-full h-full pointer-events-none">
+          <defs>
+            <mask id="tour-spotlight-mask">
+              {/* White rect covers viewport to keep backdrop visible */}
+              <rect x="0" y="0" width="100%" height="100%" fill="white" />
+              {/* Black rounded rect masks the spotlight cutout */}
+              <rect
+                x={targetRect.left - 8}
+                y={targetRect.top - 8}
+                width={targetRect.width + 16}
+                height={targetRect.height + 16}
+                rx="12"
+                ry="12"
+                fill="black"
+                className={isTransitioningStep ? "tour-spotlight-transition" : ""}
+              />
+            </mask>
+          </defs>
+          {/* Backdrop with transparent cutout mask */}
+          <rect
+            x="0"
+            y="0"
+            width="100%"
+            height="100%"
+            fill="rgba(15, 23, 42, 0.65)"
+            mask="url(#tour-spotlight-mask)"
+            className="pointer-events-auto"
+          />
+          {/* Premium Glowing Border outline */}
+          <rect
+            x={targetRect.left - 8}
+            y={targetRect.top - 8}
+            width={targetRect.width + 16}
+            height={targetRect.height + 16}
+            rx="12"
+            ry="12"
+            fill="none"
+            stroke="#29d1c4"
+            strokeWidth="3"
+            className={isTransitioningStep ? "tour-spotlight-transition" : ""}
+            style={{
+              filter: "drop-shadow(0px 0px 6px rgba(41, 209, 196, 0.7))"
+            }}
+          />
+        </svg>
+      )}
+
       {/* Guided Walkthrough Tour Dialog Popover */}
       {tourActive && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm glass-panel p-5 shadow-2xl border border-white/20 animate-fade-in-up">
+        <div className={`fixed ${!targetRect || (targetRect.bottom < (window.innerHeight - 260)) ? "bottom-6" : "top-20"} inset-x-4 mx-auto z-50 max-w-sm glass-panel p-5 shadow-2xl border border-white/20 animate-fade-in-up transition-all duration-350 ease-in-out`}>
           <div className="flex items-start justify-between gap-3 mb-2">
             <h4 className="font-heading text-sm font-extrabold text-slate-850 dark:text-slate-100">
               {tourSteps[tourStep].title}

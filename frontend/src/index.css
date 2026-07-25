@@ -79,12 +79,7 @@ body {
 
 /* Walkthrough spotlight overlay classes */
 .tour-highlight {
-  outline: 3px solid #29d1c4 !important;
-  box-shadow: 0 0 20px rgba(41, 209, 196, 0.45), 0 0 0 9999px rgba(15, 23, 42, 0.65) !important;
-  position: relative !important;
-  z-index: 40 !important;
   pointer-events: none !important;
-  transition: outline 0.25s ease, box-shadow 0.25s ease !important;
 }
 
 /* AI Receipt Scan Laser animation */
@@ -95,4 +90,13 @@ body {
 }
 .animate-laser-scan {
   animation: laser-scan 2.2s infinite ease-in-out;
+}
+
+.tour-spotlight-transition {
+  transition: x 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              y 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              rx 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              ry 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
