@@ -28,7 +28,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         full_name = validated_data.pop("full_name", "")
-        currency = validated_data.pop("currency", "USD")
+        currency = validated_data.pop("currency", "INR")
         password = validated_data.pop("password")
         user = User(**validated_data)
         user.set_password(password)

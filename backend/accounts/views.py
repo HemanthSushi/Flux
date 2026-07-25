@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import secrets
+import socket
 import smtplib
 from datetime import timedelta
 
@@ -33,6 +34,21 @@ from .serializers import (
 from .models import Profile
 
 
+LOCAL_ONLY_EMAIL_BACKENDS = {
+    "django.core.mail.backends.console.EmailBackend",
+    "django.core.mail.backends.filebased.EmailBackend",
+    "django.core.mail.backends.locmem.EmailBackend",
+    "django.core.mail.backends.dummy.EmailBackend",
+}
+
+
+class VerificationEmailDeliveryError(Exception):
+    def __init__(self, original_exception, otp):
+        super().__init__(str(original_exception))
+        self.original_exception = original_exception
+        self.otp = otp
+
+
 def _email_backend_not_configured_response():
     if settings.EMAIL_BACKEND == "django.core.mail.backends.smtp.EmailBackend":
         if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
@@ -46,6 +62,43 @@ def _email_backend_not_configured_response():
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
     return None
+
+
+def _should_expose_debug_otp():
+    return bool(getattr(settings, "DEBUG", False)) and bool(getattr(settings, "EMAIL_DEV_EXPOSE_OTP", False))
+
+
+def _uses_local_only_email_backend():
+    return settings.EMAIL_BACKEND in LOCAL_ONLY_EMAIL_BACKENDS
+
+
+def _format_email_send_error(exc):
+    if isinstance(exc, smtplib.SMTPAuthenticationError) or "5.7.8" in str(exc):
+        return (
+            "SMTP authentication failed. For Gmail, use a 16-character App Password "
+            "(no spaces) and ensure 2-Step Verification is enabled."
+        )
+    if isinstance(exc, PermissionError):
+        return (
+            "SMTP connection was blocked by your OS/network (for example firewall, VPN, or antivirus). "
+            "Allow outbound access to the mail host and port, then retry."
+        )
+    if isinstance(exc, (TimeoutError, ConnectionRefusedError, socket.gaierror, smtplib.SMTPConnectError)):
+        return (
+            "Could not connect to the SMTP server. Verify EMAIL_HOST, EMAIL_PORT, TLS/SSL settings, "
+            "and outbound network access."
+        )
+    return f"Email sending failed: {str(exc)}"
+
+
+def _email_send_failure_response(exc, otp=None, success_detail=None):
+    error_detail = _format_email_send_error(exc)
+    if otp and _should_expose_debug_otp():
+        payload = {"detail": success_detail or "Verification code generated using development fallback."}
+        payload["debug_otp"] = otp
+        payload["email_error"] = error_detail
+        return Response(payload, status=status.HTTP_200_OK)
+    return Response({"detail": error_detail}, status=status.HTTP_502_BAD_GATEWAY)
 
 
 def _otp_hash_for_user(user, otp):
@@ -103,13 +156,17 @@ def _send_verification_email(user):
         f"{verify_link}\n\n"
         "If you did not request this, ignore this email."
     )
-    send_mail(
-        subject="Verify your email",
-        message=message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[user.email],
-        fail_silently=False,
-    )
+    try:
+        send_mail(
+            subject="Verify your email",
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=False,
+        )
+    except Exception as exc:
+        raise VerificationEmailDeliveryError(exc, otp) from exc
+    return otp
 
 
 class RegisterView(generics.CreateAPIView):
@@ -203,18 +260,8 @@ class ForgotPasswordView(APIView):
                     fail_silently=False,
                 )
             except Exception as exc:
-                if isinstance(exc, smtplib.SMTPAuthenticationError) or "5.7.8" in str(exc):
-                    return Response(
-                        {
-                            "detail": (
-                                "SMTP authentication failed. For Gmail, use a 16-character App Password "
-                                "(no spaces) and ensure 2-Step Verification is enabled."
-                            )
-                        },
-                        status=status.HTTP_502_BAD_GATEWAY,
-                    )
                 return Response(
-                    {"detail": f"Email sending failed: {str(exc)}"},
+                    {"detail": _format_email_send_error(exc)},
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
 
@@ -286,24 +333,21 @@ class EmailVerificationRequestView(APIView):
             return backend_error
 
         try:
-            _send_verification_email(request.user)
-        except Exception as exc:
-            if isinstance(exc, smtplib.SMTPAuthenticationError) or "5.7.8" in str(exc):
-                return Response(
-                    {
-                        "detail": (
-                            "SMTP authentication failed. For Gmail, use a 16-character App Password "
-                            "(no spaces) and ensure 2-Step Verification is enabled."
-                        )
-                    },
-                    status=status.HTTP_502_BAD_GATEWAY,
-                )
-            return Response(
-                {"detail": f"Email sending failed: {str(exc)}"},
-                status=status.HTTP_502_BAD_GATEWAY,
+            otp = _send_verification_email(request.user)
+        except VerificationEmailDeliveryError as exc:
+            return _email_send_failure_response(
+                exc.original_exception,
+                otp=exc.otp,
+                success_detail="Verification code generated using development fallback.",
             )
 
-        return Response({"detail": "Verification code sent."})
+        payload = {"detail": "Verification code sent."}
+        if _uses_local_only_email_backend() and _should_expose_debug_otp():
+            payload["debug_otp"] = otp
+            payload["email_error"] = (
+                "Local email backend is active, so no real email was sent. Use this OTP for development."
+            )
+        return Response(payload)
 
 
 class EmailVerificationPublicRequestView(APIView):
@@ -332,23 +376,19 @@ class EmailVerificationPublicRequestView(APIView):
             return Response(generic_response)
 
         try:
-            _send_verification_email(user)
-        except Exception as exc:
-            if isinstance(exc, smtplib.SMTPAuthenticationError) or "5.7.8" in str(exc):
-                return Response(
-                    {
-                        "detail": (
-                            "SMTP authentication failed. For Gmail, use a 16-character App Password "
-                            "(no spaces) and ensure 2-Step Verification is enabled."
-                        )
-                    },
-                    status=status.HTTP_502_BAD_GATEWAY,
-                )
-            return Response(
-                {"detail": f"Email sending failed: {str(exc)}"},
-                status=status.HTTP_502_BAD_GATEWAY,
+            otp = _send_verification_email(user)
+        except VerificationEmailDeliveryError as exc:
+            return _email_send_failure_response(
+                exc.original_exception,
+                otp=exc.otp,
+                success_detail=generic_response["detail"],
             )
 
+        if _uses_local_only_email_backend() and _should_expose_debug_otp():
+            generic_response["debug_otp"] = otp
+            generic_response["email_error"] = (
+                "Local email backend is active, so no real email was sent. Use this OTP for development."
+            )
         return Response(generic_response)
 
 

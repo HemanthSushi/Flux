@@ -11,6 +11,7 @@ Thumbs.db
 *.py[cod]
 *$py.class
 backend/.venv/
+backend/venv/
 backend/__pycache__/
 backend/*/__pycache__/
 backend/*.sqlite3
@@ -19,6 +20,8 @@ backend/.env
 backend/.pytest_cache/
 backend/.mypy_cache/
 backend/.ruff_cache/
+backend/static/
+backend/templates/index.html
 backend/staticfiles/
 backend/package-lock.json
 
@@ -32,3 +35,4 @@ frontend/.env
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.codex-run/

@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Poppins:wght@600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -13,14 +13,86 @@
 }
 
 body {
-  @apply bg-cream text-ink font-body;
+  @apply bg-cream text-[#0f172a] font-body transition-colors duration-300;
   margin: 0;
   min-height: 100vh;
   overflow-x: hidden;
-  background-image: radial-gradient(circle at 12% 12%, #dff1ff 0, #edf6ff 38%, #e6f1ff 100%);
+  background-image: radial-gradient(circle at 12% 12%, #f0f7ff 0, #f8fafc 40%, #eaf4ff 100%);
 }
 
 .dark body {
-  @apply bg-slate-950 text-slate-100;
-  background-image: radial-gradient(circle at 12% 12%, #1e3a5f 0, #0f2744 40%, #0a1a2e 100%);
+  @apply bg-[#030712] text-[#f8fafc];
+  background-image: radial-gradient(circle at 12% 12%, #0f172a 0, #030712 40%, #020617 100%);
+}
+
+/* Glassmorphism Styles */
+.glass-panel {
+  @apply backdrop-blur-md bg-white/60 border border-white/20 dark:bg-slate-900/60 dark:border-slate-800/40 transition-all duration-300;
+  box-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.06);
+}
+.dark .glass-panel {
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
+}
+
+.glass-input {
+  @apply w-full rounded-2xl border border-slate-200 bg-white/60 px-4 py-2.5 text-sm outline-none transition-all duration-300 focus:border-[#29d1c4] focus:bg-white focus:ring-4 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40 dark:focus:border-[#29d1c4] dark:focus:bg-slate-950 dark:focus:ring-[#29d1c4]/10;
+}
+
+.glass-button-primary {
+  @apply rounded-2xl bg-gradient-to-r from-[#29d1c4] to-[#1da79b] text-white font-bold text-sm px-5 py-2.5 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.04), 0 8px 16px -6px rgba(15, 23, 42, 0.04);
+}
+.glass-button-primary:hover:not(:disabled) {
+  box-shadow: 0 0 15px rgba(45, 212, 191, 0.25);
+}
+
+.glass-button-secondary {
+  @apply rounded-2xl bg-white/80 border border-slate-200 font-semibold text-sm px-5 py-2.5 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all duration-300 dark:bg-slate-900/80 dark:border-slate-800 dark:hover:bg-slate-800/80;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.04), 0 8px 16px -6px rgba(15, 23, 42, 0.04);
+}
+.dark .glass-button-secondary {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 16px -6px rgba(0, 0, 0, 0.3);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-slate-300/60 hover:bg-slate-400 dark:bg-slate-700/60 dark:hover:bg-slate-600;
+}
+
+/* Ambient glow blobs */
+.ambient-glow-1 {
+  background: radial-gradient(circle, rgba(45, 212, 191, 0.12) 0%, transparent 60%);
+}
+
+.ambient-glow-2 {
+  background: radial-gradient(circle, rgba(255, 107, 74, 0.08) 0%, transparent 60%);
+}
+
+/* Walkthrough spotlight overlay classes */
+.tour-highlight {
+  outline: 3px solid #29d1c4 !important;
+  box-shadow: 0 0 20px rgba(41, 209, 196, 0.45), 0 0 0 9999px rgba(15, 23, 42, 0.65) !important;
+  position: relative !important;
+  z-index: 40 !important;
+  pointer-events: none !important;
+  transition: outline 0.25s ease, box-shadow 0.25s ease !important;
+}
+
+/* AI Receipt Scan Laser animation */
+@keyframes laser-scan {
+  0% { top: 0%; }
+  50% { top: 100%; }
+  100% { top: 0%; }
+}
+.animate-laser-scan {
+  animation: laser-scan 2.2s infinite ease-in-out;
 }

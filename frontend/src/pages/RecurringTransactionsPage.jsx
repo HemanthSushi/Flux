@@ -80,9 +80,11 @@ export default function RecurringTransactionsPage() {
     try {
       const payload = {
         ...form,
+        next_run_date: form.start_date, // Sync next run with start date on creation
         account: form.account || null,
-        end_date: form.end_date || null,
-        interval: Number(form.interval || 1)
+        end_date: null,
+        interval: 1,
+        auto_create: true
       };
       if (editingId) {
         await api.patch(`/recurring-transactions/${editingId}/`, payload);
@@ -144,37 +146,31 @@ export default function RecurringTransactionsPage() {
   };
 
   return (
-    <section className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="mr-auto font-heading text-xl font-extrabold sm:text-2xl">Recurring Transactions</h2>
-        <label className="space-y-1">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Run Due Date</span>
-          <input
-            type="date"
-            value={runDate}
-            onChange={(e) => setRunDate(e.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
-          />
-        </label>
+    <section className="space-y-6 animate-fade-in-up">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="font-heading text-xl font-extrabold sm:text-2xl text-slate-800 dark:text-slate-100">Recurring Transactions</h2>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Automate your fixed bills, salaries, rents, and subscriptions on specific intervals</p>
+        </div>
+        {/* Hidden Developer/Run-Due Utility accessible for diagnostic actions */}
         <button
-          type="button"
           onClick={onRunDue}
-          className="rounded-lg bg-ink px-4 py-2 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900"
+          className="text-[10px] text-slate-400 dark:text-slate-500 hover:text-[#29d1c4] transition font-bold uppercase tracking-wider border border-slate-200/55 dark:border-slate-800/40 rounded-xl px-3 py-1.5"
         >
-          Run due generator
+          Diagnose Schedules
         </button>
       </div>
 
       <form
         onSubmit={onSubmit}
-        className="grid grid-cols-1 gap-3 rounded-2xl bg-white/70 p-4 shadow-soft dark:bg-slate-900/70 md:grid-cols-4"
+        className="grid grid-cols-1 gap-4 rounded-2xl glass-panel p-5 md:grid-cols-4"
       >
         <label className="space-y-1">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Transaction Type</span>
+          <span className="block text-xs font-semibold uppercase tracking-wider text-slate-450 dark:text-slate-500">Transaction Type</span>
           <select
             value={form.txn_type}
             onChange={(e) => setForm((prev) => ({ ...prev, txn_type: e.target.value }))}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+            className="w-full rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
           >
             <option value="expense">Expense</option>
             <option value="income">Income</option>
@@ -182,24 +178,24 @@ export default function RecurringTransactionsPage() {
         </label>
 
         <label className="space-y-1">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Amount</span>
+          <span className="block text-xs font-semibold uppercase tracking-wider text-slate-450 dark:text-slate-500">Amount</span>
           <input
             type="number"
             step="0.01"
             value={form.amount}
             onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
             placeholder="Amount"
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+            className="w-full rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
             required
           />
         </label>
 
         <label className="space-y-1">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Category</span>
+          <span className="block text-xs font-semibold uppercase tracking-wider text-slate-450 dark:text-slate-500">Category</span>
           <select
             value={form.category}
             onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+            className="w-full rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
             required
           >
             <option value="">Select category</option>
@@ -212,11 +208,11 @@ export default function RecurringTransactionsPage() {
         </label>
 
         <label className="space-y-1">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Wallet</span>
+          <span className="block text-xs font-semibold uppercase tracking-wider text-slate-450 dark:text-slate-500">Wallet</span>
           <select
             value={form.account}
             onChange={(e) => setForm((prev) => ({ ...prev, account: e.target.value }))}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+            className="w-full rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
           >
             <option value="">No wallet</option>
             {accounts.map((account) => (
@@ -228,11 +224,11 @@ export default function RecurringTransactionsPage() {
         </label>
 
         <label className="space-y-1">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Frequency</span>
+          <span className="block text-xs font-semibold uppercase tracking-wider text-slate-450 dark:text-slate-500">Frequency</span>
           <select
             value={form.frequency}
             onChange={(e) => setForm((prev) => ({ ...prev, frequency: e.target.value }))}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+            className="w-full rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
           >
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>
@@ -242,135 +238,97 @@ export default function RecurringTransactionsPage() {
         </label>
 
         <label className="space-y-1">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Interval</span>
-          <input
-            type="number"
-            min={1}
-            value={form.interval}
-            onChange={(e) => setForm((prev) => ({ ...prev, interval: e.target.value }))}
-            placeholder="Interval"
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
-          />
-        </label>
-
-        <label className="space-y-1">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Start Date</span>
+          <span className="block text-xs font-semibold uppercase tracking-wider text-slate-450 dark:text-slate-500">Start Date</span>
           <input
             type="date"
             value={form.start_date}
             onChange={(e) => setForm((prev) => ({ ...prev, start_date: e.target.value }))}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+            className="w-full rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2.5 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
             required
           />
         </label>
 
-        <label className="space-y-1">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Next Run Date</span>
-          <input
-            type="date"
-            value={form.next_run_date}
-            onChange={(e) => setForm((prev) => ({ ...prev, next_run_date: e.target.value }))}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
-            required
-          />
-        </label>
-
-        <label className="space-y-1">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-            End Date (Optional)
-          </span>
-          <input
-            type="date"
-            value={form.end_date}
-            onChange={(e) => setForm((prev) => ({ ...prev, end_date: e.target.value }))}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
-          />
-        </label>
-
-        <label className="space-y-1 md:col-span-2">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Notes (Optional)</span>
-          <input
-            placeholder="Notes"
-            value={form.notes}
-            onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
-          />
-        </label>
-
         <div className="space-y-1">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Auto Create</span>
-          <label className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800">
-            <input
-              type="checkbox"
-              checked={form.auto_create}
-              onChange={(e) => setForm((prev) => ({ ...prev, auto_create: e.target.checked }))}
-            />
-            Enable
-          </label>
-        </div>
-
-        <div className="space-y-1">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Status</span>
-          <label className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800">
+          <span className="block text-xs font-semibold uppercase tracking-wider text-slate-450 dark:text-slate-500">Status</span>
+          <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2 text-sm text-slate-600 dark:text-slate-350 dark:border-slate-800 dark:bg-slate-950/40 cursor-pointer">
             <input
               type="checkbox"
               checked={form.is_active}
               onChange={(e) => setForm((prev) => ({ ...prev, is_active: e.target.checked }))}
+              className="rounded border-slate-300 text-[#22b9ae] focus:ring-[#22b9ae] h-4 w-4"
             />
-            Active
+            Active Schedule
           </label>
         </div>
 
-        <div className="flex items-center gap-2 md:col-span-4">
-          <button className="rounded-lg bg-coral px-4 py-2 text-sm font-bold text-white">
+        <label className="space-y-1">
+          <span className="block text-xs font-semibold uppercase tracking-wider text-slate-450 dark:text-slate-500">Notes (Optional)</span>
+          <input
+            placeholder="Notes"
+            value={form.notes}
+            onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+            className="w-full rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
+          />
+        </label>
+
+        <div className="flex items-center gap-2 md:col-span-4 pt-2 border-t border-slate-200/50 dark:border-slate-800/40">
+          <button className="rounded-xl bg-gradient-to-r from-[#29d1c4] to-[#1da79b] text-white font-bold text-sm px-5 py-2.5 shadow-md shadow-[#29d1c4]/20 hover:shadow-glow-teal active:scale-95 transition-all duration-300">
             {editingId ? "Update recurring" : "Add recurring"}
           </button>
           {editingId && (
             <button
               type="button"
               onClick={reset}
-              className="rounded-lg border border-slate-400 px-4 py-2 text-sm font-semibold"
+              className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-905 transition-all duration-300"
             >
               Cancel
             </button>
           )}
         </div>
-        {message && <p className="text-sm text-mint md:col-span-4">{message}</p>}
-        {error && <p className="text-sm text-red-600 md:col-span-4">{error}</p>}
+        {message && <p className="text-sm text-mint md:col-span-4 font-semibold">{message}</p>}
+        {error && <p className="text-sm text-red-500 md:col-span-4">{error}</p>}
       </form>
 
-      <div className="overflow-x-auto rounded-2xl bg-white/70 shadow-soft dark:bg-slate-900/70">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-100/90 dark:bg-slate-800/90">
-            <tr>
-              <th className="px-3 py-2 text-left">Type</th>
-              <th className="px-3 py-2 text-left">Amount</th>
-              <th className="px-3 py-2 text-left">Category</th>
-              <th className="px-3 py-2 text-left">Wallet</th>
-              <th className="px-3 py-2 text-left">Frequency</th>
-              <th className="px-3 py-2 text-left">Next run</th>
-              <th className="px-3 py-2 text-left">Status</th>
-              <th className="px-3 py-2 text-left">Actions</th>
+      <div className="overflow-x-auto rounded-2xl glass-panel">
+        <table className="min-w-full text-xs">
+          <thead>
+            <tr className="bg-slate-100/50 dark:bg-slate-800/40 text-slate-400 font-semibold uppercase tracking-wider">
+              <th className="px-4 py-3.5 text-left">Type</th>
+              <th className="px-4 py-3.5 text-left">Amount</th>
+              <th className="px-4 py-3.5 text-left">Category</th>
+              <th className="px-4 py-3.5 text-left">Wallet</th>
+              <th className="px-4 py-3.5 text-left">Frequency</th>
+              <th className="px-4 py-3.5 text-left">Next run</th>
+              <th className="px-4 py-3.5 text-left">Status</th>
+              <th className="px-4 py-3.5 text-left">Actions</th>
             </tr>
           </thead>
           <tbody>
             {items.map((item) => (
-              <tr key={item.id} className="border-t border-slate-200 dark:border-slate-700">
-                <td className="px-3 py-2 capitalize">{item.txn_type}</td>
-                <td className="px-3 py-2">{item.amount}</td>
-                <td className="px-3 py-2">{item.category_name || "Uncategorized"}</td>
-                <td className="px-3 py-2">{item.account_name || "-"}</td>
-                <td className="px-3 py-2">
+              <tr key={item.id} className="border-t border-slate-200/50 dark:border-slate-800/50 hover:bg-white/40 dark:hover:bg-slate-900/40 transition-colors duration-200">
+                <td className="px-4 py-3.5">
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${item.txn_type === "income" ? "bg-mint/10 text-mint" : "bg-coral/10 text-coral"}`}>
+                    {item.txn_type}
+                  </span>
+                </td>
+                <td className="px-4 py-3.5 font-bold text-slate-800 dark:text-slate-100">₹{item.amount}</td>
+                <td className="px-4 py-3.5 font-semibold text-slate-700 dark:text-slate-350">{item.category_name || "Uncategorized"}</td>
+                <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400">{item.account_name || "-"}</td>
+                <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400">
                   Every {item.interval} {item.frequency}
                 </td>
-                <td className="px-3 py-2">{item.next_run_date}</td>
-                <td className="px-3 py-2">{item.is_active ? "Active" : "Inactive"}</td>
-                <td className="px-3 py-2">
+                <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400">{item.next_run_date}</td>
+                <td className="px-4 py-3.5">
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold ${item.is_active ? "bg-mint/10 text-mint" : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500"}`}>
+                    {item.is_active ? "Active" : "Inactive"}
+                  </span>
+                </td>
+                <td className="px-4 py-3.5">
                   <div className="flex gap-3">
-                    <button onClick={() => onEdit(item)} className="font-semibold text-mint">
+                    <button onClick={() => onEdit(item)} className="text-mint font-bold hover:underline">
                       Edit
                     </button>
-                    <button onClick={() => onDelete(item.id)} className="font-semibold text-red-600">
+                    <button onClick={() => onDelete(item.id)} className="text-red-500 font-bold hover:underline">
                       Delete
                     </button>
                   </div>
@@ -379,8 +337,8 @@ export default function RecurringTransactionsPage() {
             ))}
             {!items.length && (
               <tr>
-                <td className="px-3 py-4 text-slate-500" colSpan={8}>
-                  No recurring schedules configured.
+                <td className="px-4 py-6 text-slate-400 text-center" colSpan={8}>
+                  No recurring schedules configured yet.
                 </td>
               </tr>
             )}

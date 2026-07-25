@@ -121,6 +121,26 @@ class TransactionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"account": "Wallet must belong to the same user as the transaction."}
             )
+
+        if txn_type == Transaction.EXPENSE and account:
+            txns = account.transactions.all()
+            if self.instance and self.instance.pk:
+                txns = txns.exclude(pk=self.instance.pk)
+            totals = txns.values("txn_type").annotate(total=Sum("amount"))
+            income = Decimal("0")
+            expense = Decimal("0")
+            for row in totals:
+                if row["txn_type"] == Transaction.INCOME:
+                    income = row["total"] or Decimal("0")
+                elif row["txn_type"] == Transaction.EXPENSE:
+                    expense = row["total"] or Decimal("0")
+            balance_excluding_self = account.opening_balance + income - expense
+            amount = attrs.get("amount", getattr(self.instance, "amount", Decimal("0")))
+            if balance_excluding_self < amount:
+                raise serializers.ValidationError(
+                    {"account": f"Insufficient balance in wallet '{account.name}'. Available balance is {balance_excluding_self} INR."}
+                )
+
         return attrs
 
 

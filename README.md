@@ -176,6 +176,18 @@ For production, set these environment variables:
 - `DB_ENGINE` - For PostgreSQL: `django.db.backends.postgresql`
 - `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` - Database credentials
 
+### OTP Email Troubleshooting (Local Dev)
+
+- If OTP emails are not reaching your inbox, check backend API response fields:
+  - `detail` - user-facing status
+  - `email_error` - SMTP/network diagnostic
+  - `debug_otp` - development-only fallback OTP (shown when `DEBUG=true` and `EMAIL_DEV_EXPOSE_OTP=true`)
+- Configure SMTP in `backend/.env` for real delivery:
+  - `EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend`
+  - `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`
+- For development fallback OTP visibility:
+  - `EMAIL_DEV_EXPOSE_OTP=true` (auto-enabled by default when `DEBUG=true`)
+
 ### Local Production Test
 
 To test production locally:

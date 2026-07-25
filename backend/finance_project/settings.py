@@ -49,7 +49,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 ROOT_URLCONF = "finance_project.urls"
@@ -152,6 +152,9 @@ EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
 EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() == "true"
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "20"))
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "noreply@finance.local")
+EMAIL_DEV_EXPOSE_OTP = (
+    os.getenv("EMAIL_DEV_EXPOSE_OTP", "true" if DEBUG else "false").lower() == "true"
+)
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://127.0.0.1:5173")
 AI_MODEL_RETRAIN_HOURS = int(os.getenv("AI_MODEL_RETRAIN_HOURS", "24"))
 AI_RETRAIN_FEEDBACK_THRESHOLD = int(os.getenv("AI_RETRAIN_FEEDBACK_THRESHOLD", "10"))

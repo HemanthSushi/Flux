@@ -1,4 +1,5 @@
 import re
+from unittest.mock import patch
 
 from django.conf import settings
 from django.core import mail
@@ -132,3 +133,42 @@ class SecurityUpgradeTests(APITestCase):
             "If an account with this email exists, a verification code has been sent.",
         )
         self.assertEqual(len(mail.outbox), 0)
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend",
+        EMAIL_DEV_EXPOSE_OTP=True,
+        DEBUG=True,
+    )
+    def test_email_verify_public_request_exposes_debug_otp_for_local_backend(self):
+        response = self.client.post(
+            "/api/auth/email-verify/request-public/",
+            {"email": self.user.email},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["detail"],
+            "If an account with this email exists, a verification code has been sent.",
+        )
+        self.assertRegex(response.data.get("debug_otp", ""), r"^\d{6}$")
+        self.assertIn("Local email backend is active", response.data.get("email_error", ""))
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend",
+        EMAIL_DEV_EXPOSE_OTP=True,
+        DEBUG=True,
+    )
+    @patch("accounts.views.send_mail", side_effect=PermissionError("blocked"))
+    def test_email_verify_public_request_uses_debug_fallback_when_smtp_fails(self, _mock_send_mail):
+        response = self.client.post(
+            "/api/auth/email-verify/request-public/",
+            {"email": self.user.email},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["detail"],
+            "If an account with this email exists, a verification code has been sent.",
+        )
+        self.assertRegex(response.data.get("debug_otp", ""), r"^\d{6}$")
+        self.assertIn("SMTP connection was blocked", response.data.get("email_error", ""))

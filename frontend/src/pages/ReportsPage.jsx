@@ -47,15 +47,20 @@ export default function ReportsPage() {
   };
 
   return (
-    <section className="space-y-5">
-      <h2 className="font-heading text-xl font-extrabold sm:text-2xl">Monthly Reports & Export</h2>
-      <div className="mt-4 rounded-3xl bg-white/70 p-4 shadow-soft dark:bg-slate-900/70 sm:p-6 md:p-8">
+    <section className="space-y-6 animate-fade-in-up">
+      <div>
+        <h2 className="font-heading text-xl font-extrabold sm:text-2xl text-slate-800 dark:text-slate-100">Reports & Export</h2>
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Generate monthly performance reports, download ledger sheets, and export CSV/PDF summaries</p>
+      </div>
+
+      <div className="rounded-2xl glass-panel p-5">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto]">
           <input
             type="number"
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
-            className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-800"
+            className="rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2.5 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
+            placeholder="Year"
           />
           <input
             type="number"
@@ -63,11 +68,12 @@ export default function ReportsPage() {
             max={12}
             value={month}
             onChange={(e) => setMonth(Number(e.target.value))}
-            className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-800"
+            className="rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2.5 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
+            placeholder="Month"
           />
           <button
             onClick={loadReport}
-            className="w-full rounded-xl bg-ink px-8 py-3 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900 md:w-auto"
+            className="w-full rounded-xl bg-gradient-to-r from-[#29d1c4] to-[#1da79b] text-white font-bold text-sm px-8 py-2.5 shadow-md shadow-[#29d1c4]/20 hover:shadow-glow-teal active:scale-95 transition-all duration-300 md:w-auto"
           >
             Load report
           </button>
@@ -76,14 +82,14 @@ export default function ReportsPage() {
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <button
             onClick={exportCsv}
-            className="flex items-center justify-center gap-2 rounded-xl border border-slate-400 bg-white px-4 py-3 text-sm font-semibold transition hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
+            className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/60 dark:bg-slate-950/40 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-905 px-4 py-3 text-sm font-semibold transition-all duration-300 active:scale-98"
           >
             <CsvIcon />
             <span>Export CSV</span>
           </button>
           <button
             onClick={exportPdf}
-            className="flex items-center justify-center gap-2 rounded-xl border border-slate-400 bg-white px-4 py-3 text-sm font-semibold transition hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
+            className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/60 dark:bg-slate-950/40 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-905 px-4 py-3 text-sm font-semibold transition-all duration-300 active:scale-98"
           >
             <PdfIcon />
             <span>Export PDF</span>
@@ -92,17 +98,21 @@ export default function ReportsPage() {
       </div>
 
       {report && (
-        <div className="rounded-2xl bg-white/70 p-5 shadow-soft dark:bg-slate-900/70">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <p className="rounded-lg bg-slate-100/80 px-3 py-2 text-sm dark:bg-slate-800">
-              Income: <span className="font-semibold">{report.total_income}</span>
-            </p>
-            <p className="rounded-lg bg-slate-100/80 px-3 py-2 text-sm dark:bg-slate-800">
-              Expense: <span className="font-semibold">{report.total_expense}</span>
-            </p>
-            <p className="rounded-lg bg-slate-100/80 px-3 py-2 text-sm dark:bg-slate-800">
-              Savings: <span className="font-semibold">{report.savings}</span>
-            </p>
+        <div className="rounded-2xl glass-panel p-5 animate-fade-in-up">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">Report Details</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white/30 dark:bg-slate-900/30 px-4 py-3 text-center">
+              <span className="text-[10px] uppercase font-bold text-slate-400">Total Income</span>
+              <p className="text-lg font-extrabold text-mint mt-1">₹{report.total_income}</p>
+            </div>
+            <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white/30 dark:bg-slate-900/30 px-4 py-3 text-center">
+              <span className="text-[10px] uppercase font-bold text-slate-400">Total Expense</span>
+              <p className="text-lg font-extrabold text-coral mt-1">₹{report.total_expense}</p>
+            </div>
+            <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white/30 dark:bg-slate-900/30 px-4 py-3 text-center">
+              <span className="text-[10px] uppercase font-bold text-slate-400">Net Savings</span>
+              <p className="text-lg font-extrabold text-[#1da79b] mt-1">₹{report.savings}</p>
+            </div>
           </div>
         </div>
       )}

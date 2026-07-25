@@ -35,7 +35,7 @@ export default function ForgotPasswordPage() {
       <div className="grid min-h-screen w-full overflow-hidden bg-white dark:bg-slate-900 lg:grid-cols-2">
         <div className="flex flex-col justify-center bg-[#edf3f4] px-8 py-10 dark:bg-slate-800 sm:px-12 sm:py-12">
           <div className="w-full max-w-md pl-0 sm:pl-6 lg:pl-10">
-            <img src="/logo.svg" alt="Money Diary" className="mb-12 h-11 w-auto" />
+            <img src="/icon-512-maskable.png" alt="Flux" className="mb-12 h-11 w-auto" />
 
             <form onSubmit={onSubmit} className="w-full max-w-sm space-y-5">
               <h1 className="text-3xl font-semibold leading-tight text-slate-800 dark:text-slate-100 sm:text-4xl">
@@ -95,7 +95,7 @@ export default function ForgotPasswordPage() {
           </div>
 
           <div className="grid h-full place-items-center">
-            <img src="/logo.svg" alt="Money Diary" className="h-40 w-auto sm:h-44" />
+            <img src="/icon-512-maskable.png" alt="Flux" className="h-40 w-auto sm:h-44" />
           </div>
         </div>
       </div>

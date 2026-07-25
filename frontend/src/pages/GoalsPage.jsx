@@ -103,18 +103,21 @@ export default function GoalsPage() {
   };
 
   return (
-    <section className="space-y-6">
-      <h2 className="font-heading text-xl font-extrabold sm:text-2xl">Financial Goals</h2>
+    <section className="space-y-6 animate-fade-in-up">
+      <div>
+        <h2 className="font-heading text-xl font-extrabold sm:text-2xl text-slate-800 dark:text-slate-100">Financial Goals</h2>
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Plan and track your long-term savings target, down payments, and investment objectives</p>
+      </div>
 
       <form
         onSubmit={onSubmit}
-        className="grid grid-cols-1 gap-3 rounded-2xl bg-white/70 p-4 shadow-soft dark:bg-slate-900/70 md:grid-cols-4"
+        className="grid grid-cols-1 gap-3 rounded-2xl glass-panel p-5 md:grid-cols-4"
       >
         <input
           placeholder="Goal name"
           value={form.name}
           onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+          className="rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
           required
         />
         <input
@@ -123,7 +126,7 @@ export default function GoalsPage() {
           placeholder="Target amount"
           value={form.target_amount}
           onChange={(e) => setForm((prev) => ({ ...prev, target_amount: e.target.value }))}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+          className="rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
           required
         />
         <input
@@ -132,18 +135,18 @@ export default function GoalsPage() {
           placeholder="Current amount"
           value={form.current_amount}
           onChange={(e) => setForm((prev) => ({ ...prev, current_amount: e.target.value }))}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+          className="rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
         />
         <input
           type="date"
           value={form.target_date}
           onChange={(e) => setForm((prev) => ({ ...prev, target_date: e.target.value }))}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+          className="rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
         />
         <select
           value={form.linked_account}
           onChange={(e) => setForm((prev) => ({ ...prev, linked_account: e.target.value }))}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+          className="rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
         >
           <option value="">No linked wallet</option>
           {wallets.map((wallet) => (
@@ -155,7 +158,7 @@ export default function GoalsPage() {
         <select
           value={form.status}
           onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+          className="rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
         >
           <option value="active">Active</option>
           <option value="paused">Paused</option>
@@ -165,70 +168,80 @@ export default function GoalsPage() {
           placeholder="Notes"
           value={form.notes}
           onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 md:col-span-2"
+          className="rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40 md:col-span-2"
         />
-        <div className="flex items-center gap-2 md:col-span-4">
-          <button className="rounded-lg bg-mint px-4 py-2 text-sm font-bold text-white">
+        <div className="flex items-center gap-2 md:col-span-4 pt-2">
+          <button className="rounded-xl bg-gradient-to-r from-[#29d1c4] to-[#1da79b] text-white font-bold text-sm px-5 py-2.5 shadow-md shadow-[#29d1c4]/20 hover:shadow-glow-teal active:scale-95 transition-all duration-300">
             {editingId ? "Update goal" : "Create goal"}
           </button>
           {editingId && (
             <button
               type="button"
               onClick={reset}
-              className="rounded-lg border border-slate-400 px-4 py-2 text-sm font-semibold"
+              className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-905 transition-all duration-300"
             >
               Cancel
             </button>
           )}
         </div>
-        {message && <p className="text-sm text-mint md:col-span-4">{message}</p>}
-        {error && <p className="text-sm text-red-600 md:col-span-4">{error}</p>}
+        {message && <p className="text-sm text-mint md:col-span-4 font-semibold">{message}</p>}
+        {error && <p className="text-sm text-red-500 md:col-span-4">{error}</p>}
       </form>
 
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-5">
         {goals.map((goal) => (
-          <article key={goal.id} className="rounded-2xl bg-white/70 p-4 shadow-soft dark:bg-slate-900/70">
+          <article key={goal.id} className="rounded-2xl glass-panel p-5 hover:scale-[1.01] hover:shadow-md transition-all duration-300">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 className="text-base font-bold">{goal.name}</h3>
-                <p className="text-xs text-slate-500">
-                  Target: {goal.target_amount} | Current: {goal.current_amount} | Status: {goal.status}
-                </p>
+                <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">{goal.name}</h3>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-400 dark:text-slate-500">
+                  <span className="font-semibold text-slate-500 dark:text-slate-400">Target: ₹{goal.target_amount}</span>
+                  <span>•</span>
+                  <span>Current: ₹{goal.current_amount}</span>
+                  <span>•</span>
+                  <span className={`capitalize font-bold ${goal.status === "completed" ? "text-mint" : goal.status === "paused" ? "text-slate-400" : "text-[#29d1c4]"}`}>
+                    {goal.status}
+                  </span>
+                </div>
               </div>
-              <div className="flex gap-3 text-sm">
-                <button onClick={() => onEdit(goal)} className="font-semibold text-mint">
+              <div className="flex gap-3 text-xs">
+                <button onClick={() => onEdit(goal)} className="text-mint font-bold hover:underline">
                   Edit
                 </button>
-                <button onClick={() => onDelete(goal.id)} className="font-semibold text-red-600">
+                <button onClick={() => onDelete(goal.id)} className="text-red-500 font-bold hover:underline">
                   Delete
                 </button>
               </div>
             </div>
-            <div className="mt-3 h-2 rounded bg-slate-200 dark:bg-slate-700">
+            <div className="mt-4 h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-800/80 overflow-hidden">
               <div
-                className="h-2 rounded bg-coral"
+                className="h-2.5 rounded-full bg-gradient-to-r from-[#29d1c4] to-[#1da79b]"
                 style={{ width: `${Math.min(Number(goal.progress_percentage || 0), 100)}%` }}
               />
             </div>
-            <p className="mt-2 text-xs text-slate-500">
-              Progress: {Number(goal.progress_percentage || 0).toFixed(1)}% | Remaining:{" "}
-              {goal.remaining_amount}
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-2.5 flex items-center justify-between text-xs">
+              <span className="font-extrabold text-[#1da79b]">
+                {Number(goal.progress_percentage || 0).toFixed(1)}% Completed
+              </span>
+              <span className="text-slate-400">
+                Remaining: <span className="font-semibold text-slate-600 dark:text-slate-300">₹{goal.remaining_amount}</span>
+              </span>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/60">
               <input
                 type="number"
                 step="0.01"
-                placeholder="Add contribution"
+                placeholder="Amount"
                 value={contributionInput[goal.id] || ""}
                 onChange={(e) =>
                   setContributionInput((prev) => ({ ...prev, [goal.id]: e.target.value }))
                 }
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+                className="rounded-xl border border-slate-200 bg-white/60 px-3 py-1.5 text-xs outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40 w-32"
               />
               <button
                 type="button"
                 onClick={() => onContribute(goal.id)}
-                className="rounded-lg border border-slate-400 px-4 py-2 text-sm font-semibold"
+                className="rounded-xl bg-slate-900 dark:bg-slate-100 dark:text-slate-900 text-white hover:opacity-90 px-4 py-1.5 text-xs font-bold transition-all duration-300"
               >
                 Contribute
               </button>
@@ -236,8 +249,8 @@ export default function GoalsPage() {
           </article>
         ))}
         {!goals.length && (
-          <div className="rounded-2xl bg-white/70 p-4 text-sm text-slate-500 shadow-soft dark:bg-slate-900/70">
-            No goals yet.
+          <div className="rounded-2xl glass-panel p-6 text-center text-sm text-slate-400">
+            No savings goals defined yet.
           </div>
         )}
       </div>

@@ -34,28 +34,28 @@ export default function ProfileMenu({ user, onLogout }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-30 mt-2 w-[min(18rem,calc(100vw-1rem))] rounded-xl border border-slate-200 bg-white p-4 shadow-soft dark:border-slate-700 dark:bg-slate-900">
-          <div className="mb-3 border-b border-slate-200 pb-3 dark:border-slate-700">
-            <p className="font-semibold">{user?.full_name || user?.username || "User"}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-300">@{user?.username || "username"}</p>
+        <div className="absolute right-0 z-30 mt-3 w-[min(18rem,calc(100vw-1rem))] rounded-2xl glass-panel p-4 shadow-xl">
+          <div className="mb-3 border-b border-slate-200/50 pb-3 dark:border-slate-800/60">
+            <p className="font-bold text-slate-800 dark:text-slate-100">{user?.full_name || user?.username || "User"}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">@{user?.username || "username"}</p>
           </div>
-          <div className="space-y-1 text-sm">
-            <p>
-              <span className="font-semibold">Email:</span> {user?.email || "-"}
-            </p>
-            <p>
-              <span className="font-semibold">Email verified:</span> {user?.email_verified ? "Yes" : "No"}
-            </p>
-            <p>
-              <span className="font-semibold">Currency:</span> {user?.currency || "USD"}
-            </p>
-            <p className="capitalize">
-              <span className="font-semibold">Role:</span> {user?.role || "user"}
-            </p>
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between gap-2">
+              <span className="text-slate-400 font-medium">Email</span>
+              <span className="font-semibold text-right truncate max-w-[10rem]">{user?.email || "-"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400 font-medium">Currency</span>
+              <span className="font-semibold">{user?.currency || "INR"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400 font-medium">Role</span>
+              <span className="font-semibold capitalize">{user?.role || "user"}</span>
+            </div>
           </div>
           <button
             onClick={onLogout}
-            className="mt-4 w-full rounded-lg bg-coral px-3 py-2 text-sm font-bold text-white transition hover:opacity-90"
+            className="mt-4 w-full rounded-xl bg-gradient-to-r from-[#ff6b4a] to-[#e05334] px-4 py-2 text-xs font-bold text-white shadow-md shadow-[#ff6b4a]/20 hover:shadow-glow-coral active:scale-95 transition-all duration-300"
           >
             Logout
           </button>

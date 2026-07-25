@@ -25,7 +25,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('name', models.CharField(max_length=80)),
                 ('account_type', models.CharField(choices=[('cash', 'Cash'), ('bank', 'Bank'), ('wallet', 'Wallet'), ('credit', 'Credit Card'), ('other', 'Other')], default='bank', max_length=20)),
-                ('currency', models.CharField(default='USD', max_length=10)),
+                ('currency', models.CharField(default='INR', max_length=10)),
                 ('opening_balance', models.DecimalField(decimal_places=2, default=0, max_digits=12)),
                 ('is_active', models.BooleanField(default=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),

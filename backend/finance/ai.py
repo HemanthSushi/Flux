@@ -17,7 +17,7 @@ ALGORITHM_VERSION = "nb-v1"
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
 _AMOUNT_RE = re.compile(
-    r"(?:(?:USD|INR|EUR|GBP)\s*)?(?:\$\s*)?([0-9]{1,3}(?:[, ][0-9]{3})*(?:\.[0-9]{2})|[0-9]+\.[0-9]{2})",
+    r"(?:(?:USD|INR|EUR|GBP)\s*)?(?:₹\s*)?([0-9]{1,3}(?:[, ][0-9]{3})*(?:\.[0-9]{2})|[0-9]+\.[0-9]{2})",
     re.IGNORECASE,
 )
 _DATE_RE = re.compile(r"\b\d{1,4}[/-]\d{1,2}[/-]\d{1,4}\b|\b\d{1,2}\.\d{1,2}\.\d{2,4}\b")

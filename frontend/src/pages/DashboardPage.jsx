@@ -12,6 +12,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+import { Link } from "react-router-dom";
 import AlertBanner from "../components/AlertBanner";
 import StatCard from "../components/StatCard";
 import { api } from "../lib/api";
@@ -42,6 +43,7 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState(null);
   const [report, setReport] = useState(null);
   const [alerts, setAlerts] = useState([]);
+  const [activeBudget, setActiveBudget] = useState(null);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
 
   useEffect(() => {
@@ -55,6 +57,7 @@ export default function DashboardPage() {
       setReport(reportResp.data);
 
       const budget = budgetsResp.data?.results?.find((b) => b.year === year && b.month === month);
+      setActiveBudget(budget || null);
       if (budget) {
         const alertResp = await api.get(`/budgets/${budget.id}/alerts/`);
         setAlerts(alertResp.data.alerts || []);
@@ -63,7 +66,10 @@ export default function DashboardPage() {
       }
     };
 
-    load().catch(() => setSummary(null));
+    load().catch(() => {
+      setSummary(null);
+      setActiveBudget(null);
+    });
   }, [year, month]);
 
   useEffect(() => {
@@ -91,37 +97,149 @@ export default function DashboardPage() {
   );
 
 
+  const { budgetPercent, strokeDashoffset, circumference, radius, ringColor } = useMemo(() => {
+    const limit = Number(activeBudget?.limit || 0);
+    const spent = Number(summary?.total_expense || 0);
+    const percent = limit > 0 ? (spent / limit) * 100 : 0;
+    
+    const r = 26;
+    const circ = 2 * Math.PI * r;
+    const offset = circ - (Math.min(percent, 100) / 100) * circ;
+    
+    let color = "#29d1c4";
+    if (percent >= 100) color = "#ff6b4a";
+    else if (percent >= 75) color = "#f97316";
+    
+    return {
+      budgetPercent: percent,
+      strokeDashoffset: offset,
+      circumference: circ,
+      radius: r,
+      ringColor: color
+    };
+  }, [activeBudget, summary]);
+
+  const netWorth = useMemo(() => {
+    if (!summary?.account_balances) return 0;
+    return summary.account_balances.reduce((acc, curr) => acc + Number(curr.current_balance || 0), 0);
+  }, [summary]);
+
   return (
     <section className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        <h2 className="mr-auto font-heading text-xl font-extrabold sm:text-2xl">Dashboard Analytics</h2>
-        <input
-          type="number"
-          value={year}
-          onChange={(e) => setYear(Number(e.target.value))}
-          className="w-[48%] rounded-lg border border-slate-300 bg-white/80 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 sm:w-28"
-        />
-        <input
-          type="number"
-          min={1}
-          max={12}
-          value={month}
-          onChange={(e) => setMonth(Number(e.target.value))}
-          className="w-[48%] rounded-lg border border-slate-300 bg-white/80 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 sm:w-24"
-        />
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/20 dark:border-slate-800/15 pb-4">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div>
+            <h2 className="font-heading text-xl font-extrabold sm:text-2xl text-slate-800 dark:text-slate-100">Dashboard Analytics</h2>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Real-time overview of your finances</p>
+          </div>
+          
+          {/* Net Wallet Balance Pill */}
+          <div className="flex items-center gap-3 bg-gradient-to-r from-[#29d1c4]/10 to-[#1da79b]/10 dark:from-[#29d1c4]/5 dark:to-[#1da79b]/5 border border-[#29d1c4]/20 rounded-2xl px-4 py-1.5 shadow-sm select-none">
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Total Net Balance</span>
+              <span className="font-heading text-sm font-black text-[#29d1c4]">
+                ₹{netWorth.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-4.5 w-4.5 text-[#29d1c4] opacity-80">
+              <rect x="2" y="5" width="20" height="14" rx="2" />
+              <line x1="2" y1="10" x2="22" y2="10" />
+            </svg>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 ml-auto w-full sm:w-auto mt-2 sm:mt-0">
+          <input
+            type="number"
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            className="w-1/2 sm:w-28 rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
+            placeholder="Year"
+          />
+          <input
+            type="number"
+            min={1}
+            max={12}
+            value={month}
+            onChange={(e) => setMonth(Number(e.target.value))}
+            className="w-1/2 sm:w-24 rounded-xl border border-slate-200 bg-white/60 px-3.5 py-2 text-sm outline-none transition focus:border-[#29d1c4] focus:ring-2 focus:ring-[#29d1c4]/15 dark:border-slate-800 dark:bg-slate-950/40"
+            placeholder="Month"
+          />
+        </div>
       </div>
 
       <AlertBanner alerts={alerts} />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <StatCard title="Total Income" value={summary?.total_income ?? "0.00"} accent="mint" />
-        <StatCard title="Total Expense" value={summary?.total_expense ?? "0.00"} accent="coral" />
-        <StatCard title="Savings" value={summary?.savings ?? "0.00"} accent="slate" />
+      <div id="tour-stats" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Total Income" value={summary ? '₹' + (summary.total_income ?? "0.00") : '₹0.00'} accent="mint" />
+        <StatCard title="Total Expense" value={summary ? '₹' + (summary.total_expense ?? "0.00") : '₹0.00'} accent="coral" />
+        <StatCard title="Savings" value={summary ? '₹' + (summary.savings ?? "0.00") : '₹0.00'} accent="slate" />
+        
+        {/* Animated Budget Ring Card */}
+        <div className="rounded-2xl glass-panel p-5 flex items-center justify-between min-h-[96px] relative overflow-hidden bg-white/40 dark:bg-slate-900/30">
+          <div className="flex-1 space-y-1">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Budget Progress
+            </p>
+            {activeBudget ? (
+              <div className="space-y-0.5">
+                <p className="font-heading text-lg font-black tracking-tight text-slate-800 dark:text-slate-100">
+                  {Math.round(budgetPercent)}%
+                </p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  ₹{Math.round(Number(summary?.total_expense || 0)).toLocaleString("en-IN")} / ₹{Math.round(Number(activeBudget.limit)).toLocaleString("en-IN")}
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p className="text-xs font-bold text-slate-650 dark:text-slate-400">Not configured</p>
+                <Link to="/budgets" className="text-[9px] text-[#29d1c4] font-extrabold hover:underline">Setup Budget ➔</Link>
+              </div>
+            )}
+          </div>
+          
+          {activeBudget && (
+            <div className="relative w-16 h-16 flex items-center justify-center flex-shrink-0">
+              <svg className="w-full h-full transform -rotate-90">
+                {/* Background Ring */}
+                <circle
+                  cx="32"
+                  cy="32"
+                  r={radius}
+                  className="stroke-slate-200/60 dark:stroke-slate-800/60"
+                  strokeWidth="3.5"
+                  fill="none"
+                />
+                {/* Foreground Progress Ring */}
+                <circle
+                  cx="32"
+                  cy="32"
+                  r={radius}
+                  stroke={ringColor}
+                  strokeWidth="3.5"
+                  fill="none"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDashoffset}
+                  strokeLinecap="round"
+                  className="transition-all duration-500 ease-in-out"
+                />
+              </svg>
+              {/* Center Status indicator */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                {budgetPercent >= 100 ? (
+                  <span className="text-xs select-none">⚠️</span>
+                ) : (
+                  <span className="text-[9px] text-slate-400 font-bold uppercase select-none">Limit</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-2xl bg-white/70 p-4 shadow-soft dark:bg-slate-900/70">
-          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide">Category expense pie chart</h3>
+      <div id="tour-charts" className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div className="rounded-2xl glass-panel p-5">
+          <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Expense Distribution</h3>
           <div className="h-64">
             <ResponsiveContainer>
               <PieChart>
@@ -160,8 +278,9 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
         </div>
-        <div className="rounded-2xl bg-white/70 p-4 shadow-soft dark:bg-slate-900/70">
-          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide">Monthly comparison bar chart</h3>
+
+        <div className="rounded-2xl glass-panel p-5">
+          <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Flow Comparison</h3>
           <div className="h-64">
             <ResponsiveContainer>
               <BarChart data={barData} barCategoryGap="28%">
@@ -197,32 +316,48 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-2xl bg-white/70 p-4 shadow-soft dark:bg-slate-900/70">
-          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide">Recent transactions</h3>
-          <div className="space-y-2">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div id="tour-recent" className="rounded-2xl glass-panel p-5">
+          <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Recent Transactions</h3>
+          <div className="space-y-3">
             {(summary?.recent_transactions || []).map((tx) => (
-              <div key={tx.id} className="rounded-lg bg-slate-100/70 px-3 py-2 text-sm dark:bg-slate-800">
-                <p className="font-semibold">
-                  {tx.txn_type} - {tx.amount}
-                </p>
-                <p className="text-xs text-slate-500">{tx.category_name || "Uncategorized"}</p>
+              <div key={tx.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white/30 dark:bg-slate-900/30 px-4 py-3 hover:-translate-y-0.5 transition-all duration-300">
+                <div>
+                  <p className="text-xs font-semibold capitalize text-slate-800 dark:text-slate-200">{tx.category_name || "Uncategorized"}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{tx.date}</p>
+                </div>
+                <div className="text-right">
+                  <p className={`text-sm font-bold ${tx.txn_type === "income" ? "text-mint" : "text-coral"}`}>
+                    {tx.txn_type === "income" ? "+" : "-"}₹{tx.amount}
+                  </p>
+                  <p className="text-[10px] text-slate-400 capitalize mt-0.5">{tx.account_name || "No Wallet"}</p>
+                </div>
               </div>
             ))}
+            {(!summary?.recent_transactions || summary.recent_transactions.length === 0) && (
+              <p className="text-sm text-slate-400 py-6 text-center">No recent transactions</p>
+            )}
           </div>
         </div>
-        <div className="rounded-2xl bg-white/70 p-4 shadow-soft dark:bg-slate-900/70">
-          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide">Top spending categories</h3>
-          <div className="space-y-2">
+
+        <div id="tour-top-spending" className="rounded-2xl glass-panel p-5">
+          <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Top Spending Categories</h3>
+          <div className="space-y-3">
             {(summary?.top_spending_categories || []).map((row, idx) => (
               <div
                 key={`${row.category__name}-${idx}`}
-                className="flex items-start justify-between gap-2 rounded-lg bg-slate-100/70 px-3 py-2 text-sm dark:bg-slate-800"
+                className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white/30 dark:bg-slate-900/30 px-4 py-3 hover:-translate-y-0.5 transition-all duration-300"
               >
-                <span>{row.category__name || "Uncategorized"}</span>
-                <span className="font-bold">{row.total}</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="h-2 w-2 rounded-full bg-coral animate-pulse" />
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{row.category__name || "Uncategorized"}</span>
+                </div>
+                <span className="text-sm font-bold text-slate-800 dark:text-slate-100">₹{row.total}</span>
               </div>
             ))}
+            {(!summary?.top_spending_categories || summary.top_spending_categories.length === 0) && (
+              <p className="text-sm text-slate-400 py-6 text-center">No category spending data yet</p>
+            )}
           </div>
         </div>
       </div>

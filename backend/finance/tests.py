@@ -186,3 +186,54 @@ class FinanceFeatureTests(APITestCase):
         goal = FinancialGoal.objects.get(id=goal_id)
         self.assertEqual(goal.current_amount, Decimal("1050.00"))
         self.assertEqual(goal.status, FinancialGoal.STATUS_COMPLETED)
+
+    def test_cannot_add_expense_exceeding_wallet_balance(self):
+        wallet = Account.objects.create(
+            owner=self.user,
+            name="Test Wallet",
+            account_type=Account.TYPE_WALLET,
+            currency="INR",
+            opening_balance=Decimal("100.00"),
+        )
+        # Expense of 101.00 when balance is 100.00 should fail
+        resp = self.client.post(
+            "/api/transactions/",
+            {
+                "txn_type": "expense",
+                "amount": "101.00",
+                "category": self.expense_category.id,
+                "account": wallet.id,
+                "date": date.today().isoformat(),
+                "notes": "Expensive lunch",
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("account", resp.data)
+        self.assertIn("Insufficient balance", resp.data["account"][0])
+
+    def test_cannot_update_expense_to_exceed_wallet_balance(self):
+        wallet = Account.objects.create(
+            owner=self.user,
+            name="Test Wallet 2",
+            account_type=Account.TYPE_WALLET,
+            currency="INR",
+            opening_balance=Decimal("100.00"),
+        )
+        tx = Transaction.objects.create(
+            owner=self.user,
+            txn_type=Transaction.EXPENSE,
+            amount=Decimal("40.00"),
+            category=self.expense_category,
+            account=wallet,
+            date=date.today(),
+        )
+        # Update tx amount to 101.00. Since balance excluding tx is 100.00, this should fail.
+        resp = self.client.patch(
+            f"/api/transactions/{tx.id}/",
+            {"amount": "101.00"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("account", resp.data)
+        self.assertIn("Insufficient balance", resp.data["account"][0])
